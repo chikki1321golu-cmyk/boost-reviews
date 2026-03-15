@@ -1,0 +1,200 @@
+import { useState } from "react";
+import { useParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Star, Copy, ExternalLink, ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+
+const experienceTags = ["Great Service", "Friendly Staff", "Fast Delivery", "Good Quality", "Clean Place", "Fair Price", "Amazing Food", "Cozy Atmosphere"];
+
+const mockReviews = [
+  "Had an amazing experience! The service was excellent and the staff was incredibly friendly. Highly recommend to anyone looking for quality.",
+  "Really impressed with the quality here. Everything exceeded my expectations and I'll definitely be coming back again soon!",
+  "Fantastic visit from start to finish. The attention to detail and warm atmosphere made it a truly memorable experience.",
+];
+
+const ReviewFunnel = () => {
+  const { slug } = useParams();
+  const [step, setStep] = useState(1);
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [reviews, setReviews] = useState<string[]>([]);
+  const [selectedReview, setSelectedReview] = useState("");
+  const [editedReview, setEditedReview] = useState("");
+
+  const businessName = slug?.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()) || "Business";
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const generateReviews = () => {
+    // Mock AI generation — will use Lovable Cloud edge function in production
+    setReviews(mockReviews);
+    setStep(3);
+  };
+
+  const selectReview = (review: string) => {
+    setSelectedReview(review);
+    setEditedReview(review);
+    setStep(4);
+  };
+
+  const copyReview = () => {
+    navigator.clipboard.writeText(editedReview);
+    toast.success("Review copied to clipboard!");
+  };
+
+  const slideVariants = {
+    enter: { opacity: 0, x: 40 },
+    center: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -40 },
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="w-12 h-12 rounded-xl bg-gradient-hero flex items-center justify-center mx-auto mb-3">
+            <Star className="w-6 h-6 text-primary-foreground" />
+          </div>
+          <h1 className="font-heading font-bold text-xl text-foreground">{businessName}</h1>
+          <p className="text-sm text-muted-foreground mt-1">We'd love your feedback!</p>
+        </div>
+
+        {/* Progress */}
+        <div className="flex gap-1 mb-8">
+          {[1, 2, 3, 4].map((s) => (
+            <div
+              key={s}
+              className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
+                s <= step ? "bg-primary" : "bg-border"
+              }`}
+            />
+          ))}
+        </div>
+
+        <AnimatePresence mode="wait">
+          {/* Step 1: Rating */}
+          {step === 1 && (
+            <motion.div key="step1" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+              <div className="bg-card rounded-2xl border border-border p-8 shadow-card text-center">
+                <h2 className="font-heading font-semibold text-lg text-card-foreground mb-6">How was your experience?</h2>
+                <div className="flex justify-center gap-2 mb-6">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      onClick={() => setRating(star)}
+                      className="transition-transform hover:scale-110"
+                    >
+                      <Star
+                        className={`w-10 h-10 transition-colors ${
+                          star <= (hoverRating || rating)
+                            ? "fill-accent text-accent"
+                            : "text-border"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+                {rating > 0 && (
+                  <Button variant="hero" onClick={() => setStep(2)}>
+                    Continue <ArrowRight className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 2: Tags */}
+          {step === 2 && (
+            <motion.div key="step2" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+              <div className="bg-card rounded-2xl border border-border p-8 shadow-card">
+                <h2 className="font-heading font-semibold text-lg text-card-foreground mb-2">What did you enjoy?</h2>
+                <p className="text-sm text-muted-foreground mb-6">Select all that apply</p>
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {experienceTags.map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => toggleTag(tag)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                        selectedTags.includes(tag)
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-secondary text-secondary-foreground border-border hover:border-primary/50"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+                {selectedTags.length > 0 && (
+                  <Button variant="hero" className="w-full" onClick={generateReviews}>
+                    <Sparkles className="w-4 h-4" /> Generate Review Suggestions
+                  </Button>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 3: AI Suggestions */}
+          {step === 3 && (
+            <motion.div key="step3" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+              <div className="space-y-3">
+                <h2 className="font-heading font-semibold text-lg text-card-foreground mb-1">Pick a review</h2>
+                <p className="text-sm text-muted-foreground mb-4">AI-generated suggestions based on your feedback</p>
+                {reviews.map((review, i) => (
+                  <button
+                    key={i}
+                    onClick={() => selectReview(review)}
+                    className="w-full text-left bg-card rounded-xl border border-border p-5 shadow-card hover:shadow-elevated hover:border-primary/50 transition-all"
+                  >
+                    <p className="text-sm text-card-foreground leading-relaxed">{review}</p>
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 4: Edit & Post */}
+          {step === 4 && (
+            <motion.div key="step4" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+              <div className="bg-card rounded-2xl border border-border p-8 shadow-card">
+                <h2 className="font-heading font-semibold text-lg text-card-foreground mb-4">Edit & Post</h2>
+                <textarea
+                  value={editedReview}
+                  onChange={(e) => setEditedReview(e.target.value)}
+                  rows={5}
+                  className="w-full rounded-xl border border-input bg-background p-4 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring mb-4"
+                />
+                <div className="flex gap-3">
+                  <Button variant="outline" className="flex-1" onClick={copyReview}>
+                    <Copy className="w-4 h-4" /> Copy
+                  </Button>
+                  <Button variant="hero" className="flex-1" asChild>
+                    <a href="https://search.google.com/local/writereview?placeid=PLACEHOLDER" target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="w-4 h-4" /> Post on Google
+                    </a>
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2 mt-4 justify-center text-primary">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span className="text-sm font-medium">Thank you for your review!</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <p className="text-center text-xs text-muted-foreground mt-8">Powered by ReviewBoost</p>
+      </div>
+    </div>
+  );
+};
+
+export default ReviewFunnel;
