@@ -12,7 +12,11 @@ export default {
         "2xl": "1400px",
       },
     },
-    extend: {
+      fontFamily: {
+        heading: ['Space Grotesk', 'sans-serif'],
+        body: ['DM Sans', 'sans-serif'],
+      },
+      extend: {
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
