@@ -4,14 +4,6 @@ import { Link } from "react-router-dom";
 
 const plans = [
   {
-    name: "Free",
-    price: "₹0",
-    period: "forever",
-    features: ["1 business", "50 scans/month", "Basic analytics", "QR code generator"],
-    cta: "Get Started",
-    popular: false,
-  },
-  {
     name: "Starter",
     price: "₹499",
     period: "/month",
@@ -38,7 +30,7 @@ const plans = [
 ];
 
 const PricingCards = () => (
-  <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
     {plans.map((plan) => (
       <div
         key={plan.name}
