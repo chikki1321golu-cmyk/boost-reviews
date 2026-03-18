@@ -14,7 +14,166 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      businesses: {
+        Row: {
+          category: string | null
+          created_at: string
+          google_review_link: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          slug: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          google_review_link?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          slug: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          google_review_link?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          slug?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      generated_reviews: {
+        Row: {
+          business_id: string
+          copied: boolean | null
+          created_at: string
+          google_clicked: boolean | null
+          id: string
+          rating: number
+          review_text: string
+          tags: string[] | null
+        }
+        Insert: {
+          business_id: string
+          copied?: boolean | null
+          created_at?: string
+          google_clicked?: boolean | null
+          id?: string
+          rating: number
+          review_text: string
+          tags?: string[] | null
+        }
+        Update: {
+          business_id?: string
+          copied?: boolean | null
+          created_at?: string
+          google_clicked?: boolean | null
+          id?: string
+          rating?: number
+          review_text?: string
+          tags?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_reviews_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      scans: {
+        Row: {
+          business_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scans_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          plan: string
+          razorpay_subscription_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          plan: string
+          razorpay_subscription_id?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          plan?: string
+          razorpay_subscription_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
