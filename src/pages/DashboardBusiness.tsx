@@ -14,6 +14,7 @@ import { Link } from "react-router-dom";
 const DashboardBusiness = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { maxBusinesses, isTrialActive, isTrialExpired, canGenerateReviews } = useSubscription();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [category, setCategory] = useState("");
