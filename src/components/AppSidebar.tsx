@@ -30,6 +30,7 @@ const AppSidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
+  const { isTrialActive, trialDaysLeft, isTrialExpired } = useSubscription();
 
   const handleLogout = async () => {
     await signOut();
