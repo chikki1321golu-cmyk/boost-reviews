@@ -3,15 +3,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { Building2, Plus, Loader2, Trash2 } from "lucide-react";
+import { Building2, Plus, Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useSubscription } from "@/hooks/useSubscription";
+import { Link } from "react-router-dom";
 
 const DashboardBusiness = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { maxBusinesses, isTrialActive, isTrialExpired, canGenerateReviews } = useSubscription();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [category, setCategory] = useState("");
@@ -80,40 +83,55 @@ const DashboardBusiness = () => {
           </div>
         )}
 
-        <div className="bg-card rounded-xl border border-border p-6 shadow-card">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h2 className="font-heading font-semibold text-card-foreground">Add Business</h2>
-              <p className="text-sm text-muted-foreground">Set up your business to start collecting reviews.</p>
-            </div>
+        {businesses && businesses.length >= maxBusinesses ? (
+          <div className="bg-card rounded-xl border border-border p-6 shadow-card text-center">
+            <AlertTriangle className="w-8 h-8 text-warning mx-auto mb-3 text-amber-500" />
+            <h2 className="font-heading font-semibold text-card-foreground mb-2">Business Limit Reached</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              {isTrialActive
+                ? "Your trial allows 1 business. Upgrade to add more."
+                : "Your current plan allows up to " + maxBusinesses + " business(es). Upgrade to add more."}
+            </p>
+            <Link to="/dashboard/subscription">
+              <Button variant="hero">Upgrade Plan</Button>
+            </Link>
           </div>
-          <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Business Name</Label>
-              <Input id="name" value={name} onChange={(e) => { setName(e.target.value); setSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')); }} placeholder="Café Sunshine" className="mt-1" required />
+        ) : (
+          <div className="bg-card rounded-xl border border-border p-6 shadow-card">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Building2 className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="font-heading font-semibold text-card-foreground">Add Business</h2>
+                <p className="text-sm text-muted-foreground">Set up your business to start collecting reviews.</p>
+              </div>
             </div>
-            <div>
-              <Label htmlFor="slug">URL Slug</Label>
-              <Input id="slug" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="cafe-sunshine" className="mt-1" required />
-              <p className="text-xs text-muted-foreground mt-1">Your review page: /r/{slug || "your-slug"}</p>
-            </div>
-            <div>
-              <Label htmlFor="category">Category</Label>
-              <Input id="category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Restaurant, Salon, Clinic..." className="mt-1" />
-            </div>
-            <div>
-              <Label htmlFor="google">Google Review Link</Label>
-              <Input id="google" value={googleLink} onChange={(e) => setGoogleLink(e.target.value)} placeholder="https://g.page/r/..." className="mt-1" />
-            </div>
-            <Button variant="hero" className="w-full mt-2" type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Create Business
-            </Button>
-          </form>
-        </div>
+            <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }} className="space-y-4">
+              <div>
+                <Label htmlFor="name">Business Name</Label>
+                <Input id="name" value={name} onChange={(e) => { setName(e.target.value); setSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')); }} placeholder="Café Sunshine" className="mt-1" required />
+              </div>
+              <div>
+                <Label htmlFor="slug">URL Slug</Label>
+                <Input id="slug" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="cafe-sunshine" className="mt-1" required />
+                <p className="text-xs text-muted-foreground mt-1">Your review page: /r/{slug || "your-slug"}</p>
+              </div>
+              <div>
+                <Label htmlFor="category">Category</Label>
+                <Input id="category" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Restaurant, Salon, Clinic..." className="mt-1" />
+              </div>
+              <div>
+                <Label htmlFor="google">Google Review Link</Label>
+                <Input id="google" value={googleLink} onChange={(e) => setGoogleLink(e.target.value)} placeholder="https://g.page/r/..." className="mt-1" />
+              </div>
+              <Button variant="hero" className="w-full mt-2" type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                Create Business
+              </Button>
+            </form>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

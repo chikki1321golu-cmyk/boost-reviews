@@ -91,6 +91,47 @@ export type Database = {
           },
         ]
       }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          razorpay_payment_id: string | null
+          status: string
+          subscription_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          razorpay_payment_id?: string | null
+          status?: string
+          subscription_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          razorpay_payment_id?: string | null
+          status?: string
+          subscription_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -147,9 +188,12 @@ export type Database = {
           current_period_end: string | null
           current_period_start: string | null
           id: string
+          is_trial: boolean | null
           plan: string
           razorpay_subscription_id: string | null
           status: string
+          trial_end: string | null
+          trial_start: string | null
           user_id: string
         }
         Insert: {
@@ -157,9 +201,12 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          is_trial?: boolean | null
           plan: string
           razorpay_subscription_id?: string | null
           status?: string
+          trial_end?: string | null
+          trial_start?: string | null
           user_id: string
         }
         Update: {
@@ -167,9 +214,12 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          is_trial?: boolean | null
           plan?: string
           razorpay_subscription_id?: string | null
           status?: string
+          trial_end?: string | null
+          trial_start?: string | null
           user_id?: string
         }
         Relationships: []
