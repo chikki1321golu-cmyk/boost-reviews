@@ -3,11 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { Building2, Plus, Loader2, Trash2 } from "lucide-react";
+import { Building2, Plus, Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useSubscription } from "@/hooks/useSubscription";
+import { Link } from "react-router-dom";
 
 const DashboardBusiness = () => {
   const { user } = useAuth();
