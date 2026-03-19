@@ -6,7 +6,7 @@ const plans = [
   {
     name: "Starter",
     price: "₹499",
-    period: "/month",
+    period: "/28 days",
     features: ["1 business", "500 scans/month", "AI review suggestions", "Full analytics", "Custom QR branding"],
     cta: "Start Starter",
     popular: false,
@@ -14,7 +14,7 @@ const plans = [
   {
     name: "Growth",
     price: "₹1,499",
-    period: "/month",
+    period: "/28 days",
     features: ["3 businesses", "Unlimited scans", "AI review suggestions", "Advanced analytics", "Priority support"],
     cta: "Start Growth",
     popular: true,
@@ -22,7 +22,7 @@ const plans = [
   {
     name: "Agency",
     price: "₹3,999",
-    period: "/month",
+    period: "/28 days",
     features: ["Unlimited businesses", "Unlimited scans", "White-label QR codes", "API access", "Dedicated account manager"],
     cta: "Contact Sales",
     popular: false,
@@ -46,10 +46,11 @@ const PricingCards = () => (
           </div>
         )}
         <h3 className="font-heading font-bold text-lg text-card-foreground mb-1">{plan.name}</h3>
-        <div className="mb-5">
+        <div className="mb-2">
           <span className="text-3xl font-heading font-bold text-card-foreground">{plan.price}</span>
           <span className="text-muted-foreground text-sm">{plan.period}</span>
         </div>
+        <p className="text-xs text-primary font-medium mb-4">Includes 7-day free trial</p>
         <ul className="space-y-3 mb-6">
           {plan.features.map((f) => (
             <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground">

@@ -12,7 +12,38 @@ serve(async (req) => {
   }
 
   try {
-    const { rating, tags, businessName, businessId } = await req.json();
+    const { rating, tags, businessName, businessId, userId } = await req.json();
+
+    // Check subscription status if userId provided
+    if (userId) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const sb = createClient(supabaseUrl, supabaseKey);
+
+      const { data: sub } = await sb
+        .from("subscriptions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (sub) {
+        const isTrial = sub.is_trial;
+        const trialEnd = sub.trial_end ? new Date(sub.trial_end) : null;
+        const trialExpired = isTrial && trialEnd && trialEnd <= new Date();
+        const isPaid = !isTrial && sub.status === "active";
+
+        if (trialExpired && !isPaid) {
+          return new Response(
+            JSON.stringify({ error: "Your trial has expired. Please upgrade to continue generating reviews." }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");

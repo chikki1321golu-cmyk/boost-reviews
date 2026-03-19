@@ -66,6 +66,14 @@ const AppSidebar = () => {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
+          {!collapsed && (isTrialActive || isTrialExpired) && (
+            <SidebarMenuItem>
+              <div className={`px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-2 ${isTrialExpired ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
+                <Clock className="h-3.5 w-3.5" />
+                {isTrialActive ? `Trial: ${trialDaysLeft}d left` : "Trial expired"}
+              </div>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <SidebarMenuButton onClick={handleLogout} className="hover:bg-sidebar-accent/50 text-sidebar-foreground">
               <LogOut className="mr-2 h-4 w-4" />
