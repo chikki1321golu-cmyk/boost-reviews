@@ -1,8 +1,9 @@
-import { LayoutDashboard, Building2, QrCode, CreditCard, LogOut } from "lucide-react";
+import { LayoutDashboard, Building2, QrCode, CreditCard, LogOut, Clock } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { useSubscription } from "@/hooks/useSubscription";
 import {
   Sidebar,
   SidebarContent,
