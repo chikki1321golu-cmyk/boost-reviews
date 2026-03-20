@@ -18,7 +18,7 @@ const PLAN_LIMITS: Record<string, number> = {
   trial: 1,
   starter: 1,
   growth: 3,
-  agency: Infinity,
+  agency: 20,
 };
 
 export const useSubscription = (): SubscriptionInfo => {
