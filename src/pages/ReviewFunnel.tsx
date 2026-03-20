@@ -23,6 +23,11 @@ const ReviewFunnel = () => {
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (slug === "demo") {
+      setBusiness({ id: "demo", name: "Demo Cafe", slug: "demo", google_review_link: "https://search.google.com/local/writereview?placeid=DEMO" });
+      setLoadingBusiness(false);
+      return;
+    }
     const loadBusiness = async () => {
       const { data, error } = await supabase
         .from("businesses")
@@ -31,7 +36,6 @@ const ReviewFunnel = () => {
         .maybeSingle();
       if (data) {
         setBusiness(data);
-        // Record scan
         await supabase.from("scans").insert({ business_id: data.id });
       }
       setLoadingBusiness(false);
