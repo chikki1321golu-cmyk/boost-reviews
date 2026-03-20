@@ -218,7 +218,7 @@ const ReviewFunnel = () => {
           )}
         </AnimatePresence>
 
-        <p className="text-center text-xs text-muted-foreground mt-8">Powered by ReviewBoost</p>
+        <p className="text-center text-xs text-muted-foreground mt-8">Powered by M&M Fintech Digital Solution</p>
       </div>
     </div>
   );

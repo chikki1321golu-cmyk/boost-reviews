@@ -6,24 +6,27 @@ const plans = [
   {
     name: "Starter",
     price: "₹499",
-    period: "/28 days",
-    features: ["1 business", "500 scans/month", "AI review suggestions", "Full analytics", "Custom QR branding"],
+    period: "/month",
+    features: ["1 business", "100 AI reviews/month", "Basic analytics", "QR code (small branding footer)"],
+    bestFor: "Best for: small shops, salons, cafes",
     cta: "Start Starter",
     popular: false,
   },
   {
     name: "Growth",
     price: "₹1,499",
-    period: "/28 days",
-    features: ["3 businesses", "Unlimited scans", "AI review suggestions", "Advanced analytics", "Priority support"],
+    period: "/month",
+    features: ["3 businesses", "Unlimited AI reviews", "Advanced analytics", "Custom branding (small logo)", "Priority support"],
+    bestFor: null,
     cta: "Start Growth",
     popular: true,
   },
   {
     name: "Agency",
     price: "₹3,999",
-    period: "/28 days",
-    features: ["Unlimited businesses", "Unlimited scans", "White-label QR codes", "API access", "Dedicated account manager"],
+    period: "/month",
+    features: ["20 businesses", "White-label dashboard", "Remove \"Powered by\"", "Bulk QR generation", "Team access"],
+    bestFor: null,
     cta: "Contact Sales",
     popular: false,
   },
@@ -50,7 +53,10 @@ const PricingCards = () => (
           <span className="text-3xl font-heading font-bold text-card-foreground">{plan.price}</span>
           <span className="text-muted-foreground text-sm">{plan.period}</span>
         </div>
-        <p className="text-xs text-primary font-medium mb-4">Includes 7-day free trial</p>
+        <p className="text-xs text-primary font-medium mb-2">Includes 7-day free trial</p>
+        {plan.bestFor && (
+          <p className="text-xs text-muted-foreground italic mb-3">{plan.bestFor}</p>
+        )}
         <ul className="space-y-3 mb-6">
           {plan.features.map((f) => (
             <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground">
