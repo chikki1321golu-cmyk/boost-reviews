@@ -175,7 +175,7 @@ const Index = () => {
             </div>
             <span className="font-heading font-semibold text-foreground">ReviewBoost</span>
           </div>
-          <p className="text-sm text-muted-foreground">Powered by M&M Fintech Digital Solution © 2026 M&M Fintech Digital Solution. All rights reserved.</p>
+          <p className="text-sm text-muted-foreground">© 2026 M&M Fintech. All rights reserved.</p>
         </div>
       </footer>
     </div>
