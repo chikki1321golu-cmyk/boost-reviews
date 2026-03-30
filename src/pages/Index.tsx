@@ -97,7 +97,7 @@ const Index = () => {
             <h2 className="text-3xl md:text-4xl font-heading font-bold text-foreground mb-4">
               Everything you need to boost reviews
             </h2>
-            <p className="text-muted-foreground text-lg">Simple tools that deliver real results.</p>
+            <p className="text-muted-foreground text-lg">Powerful features designed to help local businesses collect more reviews and<br />build a stronger online reputation.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {features.map((f, i) => (
@@ -175,7 +175,7 @@ const Index = () => {
             </div>
             <span className="font-heading font-semibold text-foreground">ReviewBoost</span>
           </div>
-          <p className="text-sm text-muted-foreground">Powered by M&M Fintech Digital Solution © 2026 M&M Fintech Digital Solution. All rights reserved.</p>
+          <p className="text-sm text-muted-foreground">© 2026 M&M Fintech. All rights reserved.</p>
         </div>
       </footer>
     </div>
