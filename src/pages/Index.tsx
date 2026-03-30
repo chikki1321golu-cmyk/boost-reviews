@@ -97,7 +97,7 @@ const Index = () => {
             <h2 className="text-3xl md:text-4xl font-heading font-bold text-foreground mb-4">
               Everything you need to boost reviews
             </h2>
-            <p className="text-muted-foreground text-lg">Simple tools that deliver real results.</p>
+            <p className="text-muted-foreground text-lg">Powerful features designed to help local businesses collect more reviews and<br />build a stronger online reputation.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {features.map((f, i) => (
