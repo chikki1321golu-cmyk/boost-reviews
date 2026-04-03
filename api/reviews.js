@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
     let query = supabase
       .from('reviews')
-      .select('id, author_name, rating, title, body, business_id, created_at')
+      .select('id, author_name, rating, title, body, business_id, created_at', { count: 'exact' })
       .eq('status', 'approved')
       .order('created_at', { ascending: false })
       .range(Number(offset), Number(offset) + Number(limit) - 1);
