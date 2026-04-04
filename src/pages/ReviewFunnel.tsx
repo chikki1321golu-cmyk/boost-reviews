@@ -7,14 +7,14 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ReviewTabs, { getTabsForBusiness } from "@/components/ReviewTabs";
 
-const experienceTags = ["Great Service", "Friendly Staff", "Fast Delivery", "Good Quality", "Clean Place", "Fair Price", "Amazing Food", "Cozy Atmosphere"];
+
 
 const ReviewFunnel = () => {
   const { slug } = useParams();
   const [step, setStep] = useState(1);
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  
   const [reviews, setReviews] = useState<string[]>([]);
   const [selectedReview, setSelectedReview] = useState("");
   const [editedReview, setEditedReview] = useState("");
@@ -47,18 +47,13 @@ const ReviewFunnel = () => {
   const businessName = business?.name || slug?.replace(/-/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()) || "Business";
   const googleLink = business?.google_review_link || "https://search.google.com/local/writereview?placeid=PLACEHOLDER";
 
-  const toggleTag = (tag: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
 
   const generateReviews = async () => {
     if (!business) return;
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-reviews", {
-        body: { rating, tags: selectedTags, businessName: business.name, businessId: business.id },
+        body: { rating, tags: [], businessName: business.name, businessId: business.id },
       });
       if (error) throw error;
       setReviews(data.reviews || []);
@@ -147,15 +142,9 @@ const ReviewFunnel = () => {
                   ))}
                 </div>
                 {rating > 0 && (
-                  <>
-                    <ReviewTabs
-                      tabs={getTabsForBusiness(business?.category)}
-                      rating={rating}
-                    />
-                    <Button variant="hero" className="mt-4" onClick={() => setStep(2)}>
-                      Continue <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </>
+                  <Button variant="hero" className="mt-4" onClick={() => setStep(2)}>
+                    Continue <ArrowRight className="w-4 h-4" />
+                  </Button>
                 )}
               </div>
             </motion.div>
@@ -164,21 +153,16 @@ const ReviewFunnel = () => {
           {step === 2 && (
             <motion.div key="step2" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
               <div className="bg-card rounded-2xl border border-border p-8 shadow-card">
-                <h2 className="font-heading font-semibold text-lg text-card-foreground mb-2">What did you enjoy?</h2>
-                <p className="text-sm text-muted-foreground mb-6">Select all that apply</p>
-                <div className="flex flex-wrap gap-2 mb-6">
-                  {experienceTags.map((tag) => (
-                    <button key={tag} onClick={() => toggleTag(tag)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${selectedTags.includes(tag) ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-secondary-foreground border-border hover:border-primary/50"}`}
-                    >{tag}</button>
-                  ))}
-                </div>
-                {selectedTags.length > 0 && (
-                  <Button variant="hero" className="w-full" onClick={generateReviews} disabled={generating}>
-                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                    Generate Review Suggestions
-                  </Button>
-                )}
+                <h2 className="font-heading font-semibold text-lg text-card-foreground mb-2">Tell us more</h2>
+                <p className="text-sm text-muted-foreground mb-4">Tap a dimension to highlight what mattered most</p>
+                <ReviewTabs
+                  tabs={getTabsForBusiness(business?.category)}
+                  rating={rating}
+                />
+                <Button variant="hero" className="w-full mt-4" onClick={generateReviews} disabled={generating}>
+                  {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  Generate Review Suggestions
+                </Button>
               </div>
             </motion.div>
           )}
