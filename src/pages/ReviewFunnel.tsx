@@ -22,6 +22,7 @@ const ReviewFunnel = () => {
   const [loadingBusiness, setLoadingBusiness] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   useEffect(() => {
     if (slug === "demo") {
@@ -53,7 +54,7 @@ const ReviewFunnel = () => {
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-reviews", {
-        body: { rating, tags: [], businessName: business.name, businessId: business.id },
+        body: { rating, tags: selectedTags, businessName: business.name, businessId: business.id },
       });
       if (error) throw error;
       setReviews(data.reviews || []);
@@ -158,6 +159,8 @@ const ReviewFunnel = () => {
                 <ReviewTabs
                   tabs={getTabsForBusiness(business?.category)}
                   rating={rating}
+                  selectedLabels={selectedTags}
+                  onSelectionChange={setSelectedTags}
                 />
                 <Button variant="hero" className="w-full mt-4" onClick={generateReviews} disabled={generating}>
                   {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
