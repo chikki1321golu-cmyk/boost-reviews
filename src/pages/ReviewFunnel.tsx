@@ -54,7 +54,7 @@ const ReviewFunnel = () => {
     setGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-reviews", {
-        body: { rating, tags: [], businessName: business.name, businessId: business.id },
+        body: { rating, tags: selectedTags, businessName: business.name, businessId: business.id },
       });
       if (error) throw error;
       setReviews(data.reviews || []);
