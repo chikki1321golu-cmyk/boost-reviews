@@ -1,5 +1,5 @@
 import { useRazorpay, PlanId } from "@/hooks/useRazorpay";
-import { useAuth } from "@/hooks/useAuth"; // adjust path if different in your project
+import { useAuth } from "@/contexts/AuthContext";
 import { Check } from "lucide-react";
 
 const PLANS = [
