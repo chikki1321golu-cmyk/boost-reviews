@@ -47,11 +47,6 @@ const ReviewFunnel = () => {
   const businessName = business?.name || slug?.replace(/-/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()) || "Business";
   const googleLink = business?.google_review_link || "https://search.google.com/local/writereview?placeid=PLACEHOLDER";
 
-  const toggleTag = (tag: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
 
   const generateReviews = async () => {
     if (!business) return;
