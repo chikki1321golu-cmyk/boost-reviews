@@ -22,6 +22,7 @@ const ReviewFunnel = () => {
   const [loadingBusiness, setLoadingBusiness] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   useEffect(() => {
     if (slug === "demo") {
