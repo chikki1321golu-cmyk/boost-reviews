@@ -159,6 +159,8 @@ const ReviewFunnel = () => {
                 <ReviewTabs
                   tabs={getTabsForBusiness(business?.category)}
                   rating={rating}
+                  selectedLabels={selectedTags}
+                  onSelectionChange={setSelectedTags}
                 />
                 <Button variant="hero" className="w-full mt-4" onClick={generateReviews} disabled={generating}>
                   {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
