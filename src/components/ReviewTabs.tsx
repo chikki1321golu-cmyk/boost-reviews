@@ -93,73 +93,43 @@ export function getTabsForBusiness(category: string | null | undefined): TabDef[
 interface ReviewTabsProps {
   tabs: TabDef[];
   rating: number;
+  selectedLabels?: string[];
+  onSelectionChange?: (labels: string[]) => void;
 }
 
-const ReviewTabs = ({ tabs, rating }: ReviewTabsProps) => {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [texts, setTexts] = useState<Record<number, string>>({});
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      let next = activeIndex;
-      if (e.key === "ArrowRight") next = (activeIndex + 1) % tabs.length;
-      else if (e.key === "ArrowLeft") next = (activeIndex - 1 + tabs.length) % tabs.length;
-      else if (e.key === "Home") next = 0;
-      else if (e.key === "End") next = tabs.length - 1;
-      else return;
-      e.preventDefault();
-      setActiveIndex(next);
-      tabRefs.current[next]?.focus();
-    },
-    [activeIndex, tabs.length]
-  );
-
-  const activeTab = tabs[activeIndex];
+const ReviewTabs = ({ tabs, rating, selectedLabels = [], onSelectionChange }: ReviewTabsProps) => {
+  const toggleTab = (label: string) => {
+    const next = selectedLabels.includes(label)
+      ? selectedLabels.filter((l) => l !== label)
+      : [...selectedLabels, label];
+    onSelectionChange?.(next);
+  };
 
   return (
     <div className="mt-6">
       <div
-        role="tablist"
+        role="group"
         aria-label="Review dimensions"
-        className="flex flex-wrap gap-2 mb-4"
-        onKeyDown={handleKeyDown}
+        className="flex flex-wrap gap-2"
       >
-        {tabs.map((tab, i) => (
-          <button
-            key={tab.label}
-            ref={(el) => { tabRefs.current[i] = el; }}
-            role="tab"
-            id={`review-tab-${i}`}
-            aria-selected={i === activeIndex}
-            aria-controls={`review-tabpanel-${i}`}
-            tabIndex={i === activeIndex ? 0 : -1}
-            onClick={() => setActiveIndex(i)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
-              i === activeIndex
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-secondary text-secondary-foreground border-border hover:border-primary/50"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      <div
-        role="tabpanel"
-        id={`review-tabpanel-${activeIndex}`}
-        aria-labelledby={`review-tab-${activeIndex}`}
-        className="bg-card rounded-xl border border-border p-5 shadow-card"
-      >
-        <p className="text-sm text-muted-foreground mb-3">{activeTab.prompt}</p>
-        <textarea
-          value={texts[activeIndex] || ""}
-          onChange={(e) => setTexts((prev) => ({ ...prev, [activeIndex]: e.target.value }))}
-          rows={3}
-          placeholder={`Write about ${activeTab.label.toLowerCase()}…`}
-          className="w-full rounded-xl border border-input bg-background p-4 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-        />
+        {tabs.map((tab) => {
+          const selected = selectedLabels.includes(tab.label);
+          return (
+            <button
+              key={tab.label}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => toggleTab(tab.label)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                selected
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-secondary text-secondary-foreground border-border hover:border-primary/50"
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
