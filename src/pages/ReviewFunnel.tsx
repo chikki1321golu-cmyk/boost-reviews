@@ -14,7 +14,7 @@ const ReviewFunnel = () => {
   const [step, setStep] = useState(1);
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  
   const [reviews, setReviews] = useState<string[]>([]);
   const [selectedReview, setSelectedReview] = useState("");
   const [editedReview, setEditedReview] = useState("");
