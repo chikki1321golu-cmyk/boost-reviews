@@ -5,6 +5,7 @@ import { Star, Copy, ExternalLink, ArrowRight, CheckCircle2, Sparkles, Loader2 }
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import ReviewTabs, { getTabsForBusiness } from "@/components/ReviewTabs";
 
 const experienceTags = ["Great Service", "Friendly Staff", "Fast Delivery", "Good Quality", "Clean Place", "Fair Price", "Amazing Food", "Cozy Atmosphere"];
 
