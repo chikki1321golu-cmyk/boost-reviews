@@ -147,9 +147,15 @@ const ReviewFunnel = () => {
                   ))}
                 </div>
                 {rating > 0 && (
-                  <Button variant="hero" onClick={() => setStep(2)}>
-                    Continue <ArrowRight className="w-4 h-4" />
-                  </Button>
+                  <>
+                    <ReviewTabs
+                      tabs={getTabsForBusiness(business?.category)}
+                      rating={rating}
+                    />
+                    <Button variant="hero" className="mt-4" onClick={() => setStep(2)}>
+                      Continue <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </>
                 )}
               </div>
             </motion.div>
