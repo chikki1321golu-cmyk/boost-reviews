@@ -5,9 +5,7 @@ import { toast } from "sonner";
 export type PlanId = "starter" | "growth" | "agency";
 
 declare global {
-  interface Window {
-    Razorpay: any;
-  }
+  interface Window { Razorpay: any; }
 }
 
 function loadRazorpayScript(): Promise<boolean> {
@@ -27,40 +25,58 @@ export function useRazorpay() {
   const initiatePayment = async (plan: PlanId, userEmail: string, userName?: string) => {
     setLoading(true);
     try {
-      // Load Razorpay SDK
+      // ── STEP 1: Load Razorpay SDK first (before any auth calls) ──
       const loaded = await loadRazorpayScript();
       if (!loaded) throw new Error("Failed to load payment gateway. Please try again.");
 
-      // Get current session for auth token
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Please log in to continue.");
+      // ── STEP 2: Get a FRESH session token and hold it in a local variable ──
+      // We do NOT use the reactive session from context — that can go stale.
+      // By calling refreshSession() we get a guaranteed-valid token we own.
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshData.session) {
+        throw new Error("Session expired. Please log in again.");
+      }
+      const accessToken = refreshData.session.access_token;
 
-      // Create order via edge function
-      const { data, error } = await supabase.functions.invoke("create-payment-order", {
-        body: { plan },
-      });
-      if (error) throw error;
-      if (!data?.orderId) throw new Error("Failed to create payment order.");
+      // ── STEP 3: Create Razorpay order using our held token ──
+      // We call the edge function manually with fetch (not supabase.functions.invoke)
+      // so we control exactly which token is sent and avoid triggering a re-auth.
+      const supabaseUrl = (supabase as any).supabaseUrl as string;
+      const orderRes = await fetch(
+        `${supabaseUrl}/functions/v1/create-payment-order`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${accessToken}`,
+            "apikey": (supabase as any).supabaseKey as string,
+          },
+          body: JSON.stringify({ plan }),
+        }
+      );
 
-      // Open Razorpay checkout
+      const data = await orderRes.json();
+      if (!orderRes.ok) throw new Error(data.error || "Failed to create payment order.");
+      if (!data.orderId) throw new Error("Invalid order response from server.");
+
+      // ── STEP 4: Open Razorpay checkout ──
       await new Promise<void>((resolve, reject) => {
         const options = {
           key: data.keyId,
           amount: data.amount,
           currency: data.currency,
           name: "ReviewBooster",
-          description: `${data.planName} Plan — Monthly Subscription`,
-          image: "https://boost-reviews.vercel.app/favicon.ico",
+          description: `${data.planName} Plan — Monthly`,
           order_id: data.orderId,
           prefill: {
-            email: userEmail,
+            email: data.userEmail || userEmail,
             name: userName || "",
           },
           theme: { color: "#0D4A3A" },
           modal: {
             ondismiss: () => {
-              toast.error("Payment cancelled.");
-              reject(new Error("Payment cancelled by user."));
+              toast.info("Payment cancelled.");
+              resolve(); // resolve (not reject) so we don't show an error
             },
           },
           handler: async (response: {
@@ -69,26 +85,36 @@ export function useRazorpay() {
             razorpay_signature: string;
           }) => {
             try {
-              // Verify payment and activate subscription
-              const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
-                "verify-payment",
+              // ── STEP 5: Verify payment using the SAME held token ──
+              const verifyRes = await fetch(
+                `${supabaseUrl}/functions/v1/verify-payment`,
                 {
-                  body: {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${accessToken}`,
+                    "apikey": (supabase as any).supabaseKey as string,
+                  },
+                  body: JSON.stringify({
                     razorpay_order_id: response.razorpay_order_id,
                     razorpay_payment_id: response.razorpay_payment_id,
                     razorpay_signature: response.razorpay_signature,
                     plan,
-                  },
+                  }),
                 }
               );
-              if (verifyError) throw verifyError;
-              if (!verifyData?.success) throw new Error("Payment verification failed.");
+
+              const verifyData = await verifyRes.json();
+              if (!verifyRes.ok) throw new Error(verifyData.error || "Payment verification failed.");
+              if (!verifyData.success) throw new Error("Payment verification failed.");
+
               toast.success(`🎉 ${verifyData.message}`);
               resolve();
-              // Reload page after short delay to refresh subscription state
+
+              // Refresh page after short delay to reload subscription state
               setTimeout(() => window.location.reload(), 1500);
             } catch (err: any) {
-              toast.error(err.message || "Payment verification failed.");
+              toast.error(err.message || "Payment verification failed. Please contact support.");
               reject(err);
             }
           },
@@ -97,14 +123,13 @@ export function useRazorpay() {
         const rzp = new window.Razorpay(options);
         rzp.on("payment.failed", (response: any) => {
           toast.error(`Payment failed: ${response.error.description}`);
-          reject(new Error(response.error.description));
+          resolve(); // resolve so setLoading(false) runs cleanly
         });
         rzp.open();
       });
+
     } catch (err: any) {
-      if (err.message !== "Payment cancelled by user.") {
-        toast.error(err.message || "Payment failed. Please try again.");
-      }
+      toast.error(err.message || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
