@@ -5,6 +5,7 @@ import { Star, Copy, ExternalLink, ArrowRight, CheckCircle2, Sparkles, Loader2 }
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import ReviewTabs, { getTabsForBusiness } from "@/components/ReviewTabs";
 
 const experienceTags = ["Great Service", "Friendly Staff", "Fast Delivery", "Good Quality", "Clean Place", "Fair Price", "Amazing Food", "Cozy Atmosphere"];
 
@@ -146,9 +147,15 @@ const ReviewFunnel = () => {
                   ))}
                 </div>
                 {rating > 0 && (
-                  <Button variant="hero" onClick={() => setStep(2)}>
-                    Continue <ArrowRight className="w-4 h-4" />
-                  </Button>
+                  <>
+                    <ReviewTabs
+                      tabs={getTabsForBusiness(business?.category)}
+                      rating={rating}
+                    />
+                    <Button variant="hero" className="mt-4" onClick={() => setStep(2)}>
+                      Continue <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </>
                 )}
               </div>
             </motion.div>
