@@ -118,6 +118,7 @@ export function useRazorpay() {
             // Restore localStorage immediately after payment completes
             localStorage.setItem = originalSetItem;
             localStorage.removeItem = originalRemoveItem;
+            supabase.realtime.connect(); // Reconnect realtime after payment
 
             try {
               const verifyData = await callPaymentSession({
