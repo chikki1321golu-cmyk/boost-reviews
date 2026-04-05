@@ -1,9 +1,21 @@
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { PlanId, useRazorpay } from "@/hooks/useRazorpay";
 import { CheckCircle2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-const plans = [
+const plans: Array<{
+  id: PlanId;
+  name: string;
+  price: string;
+  period: string;
+  features: string[];
+  bestFor: string | null;
+  cta: string;
+  popular: boolean;
+}> = [
   {
+    id: "starter",
     name: "Starter",
     price: "₹499",
     period: "/month",
@@ -13,6 +25,7 @@ const plans = [
     popular: false,
   },
   {
+    id: "growth",
     name: "Growth",
     price: "₹1,499",
     period: "/month",
@@ -22,6 +35,7 @@ const plans = [
     popular: true,
   },
   {
+    id: "agency",
     name: "Agency",
     price: "₹3,999",
     period: "/month",
@@ -32,50 +46,65 @@ const plans = [
   },
 ];
 
-const PricingCards = () => (
-  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-    {plans.map((plan) => (
-      <div
-        key={plan.name}
-        className={`relative rounded-2xl p-6 border transition-shadow duration-300 ${
-          plan.popular
-            ? "border-primary bg-card shadow-elevated scale-[1.02]"
-            : "border-border bg-card shadow-card hover:shadow-elevated"
-        }`}
-      >
-        {plan.popular && (
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-hero text-primary-foreground text-xs font-semibold">
-            Most Popular
+const PricingCards = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { initiatePayment, loading } = useRazorpay();
+
+  const handlePlanClick = (planId: PlanId) => {
+    if (!user?.id || !user.email) {
+      navigate("/signup");
+      return;
+    }
+
+    initiatePayment(planId, user.id, user.email, user.user_metadata?.full_name);
+  };
+
+  return (
+    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {plans.map((plan) => (
+        <div
+          key={plan.name}
+          className={`relative rounded-2xl p-6 border transition-shadow duration-300 ${
+            plan.popular
+              ? "border-primary bg-card shadow-elevated scale-[1.02]"
+              : "border-border bg-card shadow-card hover:shadow-elevated"
+          }`}
+        >
+          {plan.popular && (
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-gradient-hero text-primary-foreground text-xs font-semibold">
+              Most Popular
+            </div>
+          )}
+          <h3 className="font-heading font-bold text-lg text-card-foreground mb-1">{plan.name}</h3>
+          <div className="mb-2">
+            <span className="text-3xl font-heading font-bold text-card-foreground">{plan.price}</span>
+            <span className="text-muted-foreground text-sm">{plan.period}</span>
           </div>
-        )}
-        <h3 className="font-heading font-bold text-lg text-card-foreground mb-1">{plan.name}</h3>
-        <div className="mb-2">
-          <span className="text-3xl font-heading font-bold text-card-foreground">{plan.price}</span>
-          <span className="text-muted-foreground text-sm">{plan.period}</span>
-        </div>
-        <p className="text-xs text-primary font-medium mb-2">Includes 7-day free trial</p>
-        {plan.bestFor && (
-          <p className="text-xs text-muted-foreground italic mb-3">{plan.bestFor}</p>
-        )}
-        <ul className="space-y-3 mb-6">
-          {plan.features.map((f) => (
-            <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground">
-              <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-              {f}
-            </li>
-          ))}
-        </ul>
-        <Link to="/signup">
+          <p className="text-xs text-primary font-medium mb-2">Includes 7-day free trial</p>
+          {plan.bestFor && (
+            <p className="text-xs text-muted-foreground italic mb-3">{plan.bestFor}</p>
+          )}
+          <ul className="space-y-3 mb-6">
+            {plan.features.map((f) => (
+              <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground">
+                <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                {f}
+              </li>
+            ))}
+          </ul>
           <Button
             variant={plan.popular ? "hero" : "outline"}
             className="w-full"
+            disabled={loading}
+            onClick={() => handlePlanClick(plan.id)}
           >
-            {plan.cta}
+            {loading ? "Processing..." : plan.cta}
           </Button>
-        </Link>
-      </div>
-    ))}
-  </div>
-);
+        </div>
+      ))}
+    </div>
+  );
+};
 
 export default PricingCards;
