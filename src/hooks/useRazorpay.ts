@@ -145,9 +145,13 @@ export function useRazorpay() {
         rzp.on("payment.failed", (res: any) => {
           localStorage.setItem = originalSetItem;
           localStorage.removeItem = originalRemoveItem;
+          supabase.realtime.connect(); // Reconnect realtime after failure
           toast.error(`Payment failed: ${res.error.description}`);
           resolve();
         });
+
+        // Disconnect realtime before opening Razorpay to prevent false logout
+        supabase.realtime.disconnect();
         rzp.open();
       });
 
