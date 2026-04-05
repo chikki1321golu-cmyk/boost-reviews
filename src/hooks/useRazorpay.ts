@@ -105,6 +105,7 @@ export function useRazorpay() {
               // Restore localStorage before resolving
               localStorage.setItem = originalSetItem;
               localStorage.removeItem = originalRemoveItem;
+              supabase.realtime.connect(); // Reconnect realtime after dismiss
               toast.info("Payment cancelled.");
               resolve();
             },
