@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { QRCodeSVG } from "qrcode.react";
 import { Download, Loader2 } from "lucide-react";
 import { useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";

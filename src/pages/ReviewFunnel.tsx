@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Star, Copy, ExternalLink, ArrowRight, CheckCircle2, Sparkles, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import ReviewTabs, { getTabsForBusiness } from "@/components/ReviewTabs";
 
 
