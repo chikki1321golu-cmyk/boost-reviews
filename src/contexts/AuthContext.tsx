@@ -25,14 +25,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (_event === 'SIGNED_OUT') {
+      (event, session) => {
+        if (event === "SIGNED_OUT") {
           const razorpayOpen =
             !!document.querySelector('iframe[src*="razorpay"]') ||
-            !!document.querySelector('.razorpay-container') ||
-            !!document.querySelector('#razorpay-backdrop');
-          if (razorpayOpen) return;
+            !!document.querySelector(".razorpay-container") ||
+            !!document.querySelector("#razorpay-backdrop");
+
+          if (razorpayOpen) {
+            return; // stop here — do NOT update session state
+          }
         }
+
+        // Only reaches here if NOT a Razorpay-caused SIGNED_OUT
         setSession(session);
         setLoading(false);
       }
