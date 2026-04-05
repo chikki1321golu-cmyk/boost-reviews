@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 export type PlanId = "starter" | "growth" | "agency";
 
@@ -104,6 +105,7 @@ export function useRazorpay() {
               // Restore localStorage before resolving
               localStorage.setItem = originalSetItem;
               localStorage.removeItem = originalRemoveItem;
+              supabase.realtime.connect(); // Reconnect realtime after dismiss
               toast.info("Payment cancelled.");
               resolve();
             },
@@ -116,6 +118,7 @@ export function useRazorpay() {
             // Restore localStorage immediately after payment completes
             localStorage.setItem = originalSetItem;
             localStorage.removeItem = originalRemoveItem;
+            supabase.realtime.connect(); // Reconnect realtime after payment
 
             try {
               const verifyData = await callPaymentSession({
@@ -142,9 +145,13 @@ export function useRazorpay() {
         rzp.on("payment.failed", (res: any) => {
           localStorage.setItem = originalSetItem;
           localStorage.removeItem = originalRemoveItem;
+          supabase.realtime.connect(); // Reconnect realtime after failure
           toast.error(`Payment failed: ${res.error.description}`);
           resolve();
         });
+
+        // Disconnect realtime before opening Razorpay to prevent false logout
+        supabase.realtime.disconnect();
         rzp.open();
       });
 
