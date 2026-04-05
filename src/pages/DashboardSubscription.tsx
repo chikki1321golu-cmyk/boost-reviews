@@ -2,7 +2,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import PricingCards from "@/components/PricingCards";
 import { Badge } from "@/components/ui/badge";
 import { useSubscription } from "@/hooks/useSubscription";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { Clock, AlertTriangle, CheckCircle2, CreditCard } from "lucide-react";

@@ -9,7 +9,7 @@ import {
   ChartContainer, ChartTooltip, ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";

@@ -3,7 +3,7 @@ import StatsCard from "@/components/StatsCard";
 import AnalyticsCharts from "@/components/AnalyticsCharts";
 import { QrCode, Sparkles, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
 
 const Dashboard = () => {
