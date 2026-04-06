@@ -1,40 +1,71 @@
 
 
-## Plan: Update Pricing, Fix Demo, Rebrand Footer, Agency Limit
+## Plan: Rebrand to "Revuza" + QR Poster Changes
 
-### 1. Update Pricing Plans in `PricingCards.tsx`
+### 1. Rebrand "ReviewBoost" / "ReviewBooster" to "Revuza"
 
-Update the three plan cards with the exact features specified:
+The logo uses a bold, modern style with blues/purples and a star. The logo image will be copied into the project and used where the star icon + text currently appears.
 
-**Starter (₹499/month)**: 1 business, 100 AI reviews/month, Basic analytics, QR code (small branding footer). Best for: small shops, salons, cafes.
+**Files to update** (replace "ReviewBoost" text with "Revuza"):
+- `src/pages/Index.tsx` — nav logo (line 44), footer logo (line 176)
+- `src/pages/Login.tsx` — logo (line 37)
+- `src/pages/Signup.tsx` — logo (line 45)
+- `src/components/DashboardLayout.tsx` — header logo (line 17)
+- `src/hooks/useRazorpay.ts` — Razorpay merchant name (line 98)
+- `index.html` — page title and meta tags
 
-**Growth (₹1,499/month)**: 3 businesses, Unlimited AI reviews, Advanced analytics, Custom branding (small logo), Priority support. Mark as Most Popular.
+**Logo integration**: Copy the uploaded `revuza_logo_final.jpeg` to `src/assets/revuza-logo.jpeg`. Replace the star-icon + text combos with an `<img>` tag importing this logo. The logo already contains the word "Revuza" so no separate text span is needed — just size the image appropriately for each context (nav ~32px height, footer ~24px, etc).
 
-**Agency (₹3,999/month)**: 20 businesses, White-label dashboard, Remove "Powered by", Bulk QR generation, Team access.
+**Color/font alignment with logo**: The logo uses blues (#4285F4-ish) and purples. The current emerald/green theme is a broader design choice — changing the entire app color scheme is a large undertaking. The plan will keep the existing color scheme but update the brand name and logo image. If a full color scheme change is desired, that can be a follow-up.
 
-Change period text from "/28 days" to "/month". Add "best for" tagline on Starter card.
+### 2. QR Poster — Replace logo placeholder with Google logo text
 
-### 2. Update Agency Business Limit
+In `src/components/ReviewPoster.tsx`, replace the logo section (lines 37-69) that currently shows either the uploaded business logo or "Your Business Logo" placeholder. Instead, always render the colorful "Google" wordmark using styled spans:
 
-In `useSubscription.ts`, change Agency `maxBusinesses` from `Infinity` to `20`.
+```tsx
+<div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
+  {[
+    { letter: "G", color: "#4285F4" },
+    { letter: "o", color: "#EA4335" },
+    { letter: "o", color: "#FBBC05" },
+    { letter: "g", color: "#4285F4" },
+    { letter: "l", color: "#34A853" },
+    { letter: "e", color: "#EA4335" },
+  ].map((l, i) => (
+    <span key={i} style={{ color: l.color, fontSize: 48, fontWeight: 700, fontFamily: "'Product Sans', 'DM Sans', sans-serif" }}>
+      {l.letter}
+    </span>
+  ))}
+</div>
+```
 
-### 3. Fix Demo Funnel
+Remove the `logoUrl` prop from `ReviewPosterProps` since it's no longer used.
 
-The "Try Demo Funnel" button links to `/r/demo` but there is no business with slug "demo" in the database. Two options:
-- Add a static demo mode in `ReviewFunnel.tsx` that works without a database record when slug is "demo" — uses hardcoded business name "Demo Cafe" and skips DB lookups.
+### 3. QR Poster Page — Remove upload logo button
 
-### 4. Rebrand Footer and Powered-By
+In `src/pages/DashboardQRCode.tsx`:
+- Remove the entire `<label>` block (lines 149-174) containing the file input and "Upload Logo" button
+- Remove the `handleLogoUpload` function (lines 33-65)
+- Remove the `uploading` state (line 18)
+- Remove the `Upload` icon import
+- Remove the `useQueryClient` import and usage (no longer needed for logo invalidation)
+- Remove `logoUrl` prop from `<ReviewPoster>` calls
+- Keep everything else: download button, poster preview, business list
 
-- **Index.tsx footer**: Change from "© 2026 ReviewBoost. All rights reserved." to "Powered by M&M Fintech Digital Solution © 2026 M&M Fintech Digital Solution. All rights reserved."
-- **ReviewFunnel.tsx**: Change "Powered by ReviewBoost" to "Powered by M&M Fintech Digital Solution"
-- **DashboardLayout.tsx**: Keep "ReviewBoost" as the product name in the header (it's the SaaS product name).
+### 4. Footer branding on poster
 
-### Files Changed
+Update `WWW.REVIEWBOOSTER.IN` to `WWW.REVUZA.IN` in `ReviewPoster.tsx` line 298 to match the rebrand.
 
+### Files changed summary
 | File | Change |
-|------|--------|
-| `src/components/PricingCards.tsx` | Updated plan features, pricing period, best-for tags |
-| `src/hooks/useSubscription.ts` | Agency limit → 20 |
-| `src/pages/ReviewFunnel.tsx` | Demo mode for slug "demo" |
-| `src/pages/Index.tsx` | Footer rebrand to M&M Fintech Digital Solution |
+|---|---|
+| `src/assets/revuza-logo.jpeg` | New — copied from upload |
+| `src/pages/Index.tsx` | Replace brand name + icon with logo image |
+| `src/pages/Login.tsx` | Same |
+| `src/pages/Signup.tsx` | Same |
+| `src/components/DashboardLayout.tsx` | Same |
+| `src/hooks/useRazorpay.ts` | "ReviewBooster" → "Revuza" |
+| `index.html` | Update title/meta |
+| `src/components/ReviewPoster.tsx` | Google logo letters, remove logoUrl prop, update footer URL |
+| `src/pages/DashboardQRCode.tsx` | Remove upload logo UI and handler |
 
