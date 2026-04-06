@@ -3,7 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Star, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import revuzaLogo from "@/assets/revuza-logo.jpeg";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 

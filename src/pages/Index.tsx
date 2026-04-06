@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Star, QrCode, Sparkles, BarChart3, ArrowRight, CheckCircle2 } from "lucide-react";
+import { QrCode, Sparkles, BarChart3, ArrowRight, CheckCircle2 } from "lucide-react";
+import revuzaLogo from "@/assets/revuza-logo.jpeg";
 import { motion } from "framer-motion";
 import PricingCards from "@/components/PricingCards";
 
