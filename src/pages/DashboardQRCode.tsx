@@ -1,45 +1,89 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { QRCodeSVG } from "qrcode.react";
-import { Download, Loader2 } from "lucide-react";
-import { useRef } from "react";
+import { Download, Loader2, Upload } from "lucide-react";
+import { useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
+import html2canvas from "html2canvas";
+import ReviewPoster from "@/components/ReviewPoster";
 
 const DashboardQRCode = () => {
   const { user } = useAuth();
-  const qrRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+  const posterRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const [uploading, setUploading] = useState<string | null>(null);
 
   const { data: businesses, isLoading } = useQuery({
     queryKey: ["businesses"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("businesses").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("businesses")
+        .select("*")
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
     enabled: !!user,
   });
 
-  const handleDownload = (slug: string) => {
-    const container = document.getElementById(`qr-${slug}`);
-    const svg = container?.querySelector("svg");
-    if (!svg) return;
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const canvas = document.createElement("canvas");
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext("2d");
-    const img = new Image();
-    img.onload = () => {
-      ctx?.drawImage(img, 0, 0, 512, 512);
+  const handleLogoUpload = async (businessId: string, file: File) => {
+    setUploading(businessId);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${businessId}/logo.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("business-logos")
+        .upload(path, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("business-logos")
+        .getPublicUrl(path);
+
+      const logoUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+      const { error: updateError } = await supabase
+        .from("businesses")
+        .update({ logo_url: logoUrl })
+        .eq("id", businessId);
+
+      if (updateError) throw updateError;
+
+      queryClient.invalidateQueries({ queryKey: ["businesses"] });
+      toast.success("Logo uploaded!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload logo.");
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const handleDownload = async (slug: string) => {
+    const el = posterRefs.current[slug];
+    if (!el) return;
+
+    setDownloading(slug);
+    try {
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: null,
+      });
       const a = document.createElement("a");
-      a.download = `reviewboost-${slug}.png`;
+      a.download = `${slug}-review-poster.png`;
       a.href = canvas.toDataURL("image/png");
       a.click();
-    };
-    img.src = "data:image/svg+xml;base64," + btoa(svgData);
+    } catch {
+      toast.error("Failed to download poster.");
+    } finally {
+      setDownloading(null);
+    }
   };
 
   if (isLoading) {
@@ -56,8 +100,12 @@ const DashboardQRCode = () => {
     return (
       <DashboardLayout>
         <div className="max-w-lg mx-auto text-center py-20">
-          <h1 className="text-2xl font-heading font-bold text-foreground mb-2">QR Codes</h1>
-          <p className="text-muted-foreground mb-4">Create a business first to generate QR codes.</p>
+          <h1 className="text-2xl font-heading font-bold text-foreground mb-2">
+            QR Posters
+          </h1>
+          <p className="text-muted-foreground mb-4">
+            Create a business first to generate review posters.
+          </p>
           <Link to="/dashboard/business">
             <Button variant="hero">Add Business</Button>
           </Link>
@@ -69,23 +117,79 @@ const DashboardQRCode = () => {
   return (
     <DashboardLayout>
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-heading font-bold text-foreground mb-6">QR Codes</h1>
-        <div className="grid sm:grid-cols-2 gap-6">
-          {businesses.map((b) => {
-            const url = `${window.location.origin}/r/${b.slug}`;
-            return (
-              <div key={b.id} className="bg-card rounded-xl border border-border p-6 shadow-card text-center">
-                <h2 className="font-heading font-semibold text-card-foreground mb-4">{b.name}</h2>
-                <div id={`qr-${b.slug}`} className="inline-block p-4 bg-background rounded-xl mb-3">
-                  <QRCodeSVG value={url} size={180} fgColor="hsl(160,84%,28%)" bgColor="transparent" level="H" />
+        <h1 className="text-2xl font-heading font-bold text-foreground mb-6">
+          QR Review Posters
+        </h1>
+
+        <div className="space-y-10">
+          {businesses.map((b) => (
+            <div
+              key={b.id}
+              className="bg-card rounded-xl border border-border shadow-card overflow-hidden"
+            >
+              {/* Poster preview */}
+              <div className="flex justify-center p-6 bg-muted/30 overflow-auto">
+                <div
+                  className="shadow-xl rounded-lg overflow-hidden"
+                  style={{ width: 595 }}
+                >
+                  <ReviewPoster
+                    ref={(el) => {
+                      posterRefs.current[b.slug] = el;
+                    }}
+                    businessName={b.name}
+                    slug={b.slug}
+                    logoUrl={b.logo_url}
+                  />
                 </div>
-                <p className="text-xs text-muted-foreground break-all mb-4">{url}</p>
-                <Button variant="hero" onClick={() => handleDownload(b.slug)}>
-                  <Download className="w-4 h-4" /> Download PNG
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap items-center justify-center gap-3 p-4 border-t border-border">
+                <label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleLogoUpload(b.id, file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    asChild
+                    disabled={uploading === b.id}
+                  >
+                    <span className="cursor-pointer">
+                      {uploading === b.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4" />
+                      )}
+                      {uploading === b.id ? "Uploading…" : "Upload Logo"}
+                    </span>
+                  </Button>
+                </label>
+
+                <Button
+                  variant="hero"
+                  onClick={() => handleDownload(b.slug)}
+                  disabled={downloading === b.slug}
+                >
+                  {downloading === b.slug ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  {downloading === b.slug
+                    ? "Generating…"
+                    : "Download Poster"}
                 </Button>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </div>
     </DashboardLayout>
