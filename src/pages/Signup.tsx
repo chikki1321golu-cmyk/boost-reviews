@@ -3,7 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Star, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import revuzaLogo from "@/assets/revuza-logo.jpeg";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -39,10 +40,7 @@ const Signup = () => {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-gradient-hero flex items-center justify-center">
-              <Star className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="font-heading font-bold text-2xl text-foreground">ReviewBoost</span>
+            <img src={revuzaLogo} alt="Revuza" className="h-10 w-auto" />
           </Link>
           <h1 className="font-heading font-bold text-xl text-foreground">Create your account</h1>
           <p className="text-sm text-muted-foreground mt-1">Start collecting reviews in minutes</p>

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Star, QrCode, Sparkles, BarChart3, ArrowRight, CheckCircle2 } from "lucide-react";
+import { QrCode, Sparkles, BarChart3, ArrowRight, CheckCircle2 } from "lucide-react";
+import revuzaLogo from "@/assets/revuza-logo.jpeg";
 import { motion } from "framer-motion";
 import PricingCards from "@/components/PricingCards";
 
@@ -38,10 +39,7 @@ const Index = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
         <div className="container mx-auto flex items-center justify-between h-16 px-4">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-hero flex items-center justify-center">
-              <Star className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="font-heading font-bold text-xl text-foreground">ReviewBoost</span>
+            <img src={revuzaLogo} alt="Revuza" className="h-8 w-auto" />
           </Link>
           <div className="flex items-center gap-3">
             <Link to="/login">
@@ -169,12 +167,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="py-12 px-4 border-t border-border">
         <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-gradient-hero flex items-center justify-center">
-              <Star className="w-3 h-3 text-primary-foreground" />
-            </div>
-            <span className="font-heading font-semibold text-foreground">ReviewBoost</span>
-          </div>
+          <img src={revuzaLogo} alt="Revuza" className="h-6 w-auto" />
           <p className="text-sm text-muted-foreground">© 2026 M&M Fintech. All rights reserved.</p>
         </div>
       </footer>

@@ -1,10 +1,10 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, Upload } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
@@ -12,10 +12,8 @@ import ReviewPoster from "@/components/ReviewPoster";
 
 const DashboardQRCode = () => {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const posterRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [downloading, setDownloading] = useState<string | null>(null);
-  const [uploading, setUploading] = useState<string | null>(null);
 
   const { data: businesses, isLoading } = useQuery({
     queryKey: ["businesses"],
@@ -29,40 +27,6 @@ const DashboardQRCode = () => {
     },
     enabled: !!user,
   });
-
-  const handleLogoUpload = async (businessId: string, file: File) => {
-    setUploading(businessId);
-    try {
-      const ext = file.name.split(".").pop();
-      const path = `${businessId}/logo.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("business-logos")
-        .upload(path, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from("business-logos")
-        .getPublicUrl(path);
-
-      const logoUrl = `${urlData.publicUrl}?t=${Date.now()}`;
-
-      const { error: updateError } = await supabase
-        .from("businesses")
-        .update({ logo_url: logoUrl })
-        .eq("id", businessId);
-
-      if (updateError) throw updateError;
-
-      queryClient.invalidateQueries({ queryKey: ["businesses"] });
-      toast.success("Logo uploaded!");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to upload logo.");
-    } finally {
-      setUploading(null);
-    }
-  };
 
   const handleDownload = async (slug: string) => {
     const el = posterRefs.current[slug];
@@ -139,40 +103,12 @@ const DashboardQRCode = () => {
                     }}
                     businessName={b.name}
                     slug={b.slug}
-                    logoUrl={b.logo_url}
                   />
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="flex flex-wrap items-center justify-center gap-3 p-4 border-t border-border">
-                <label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleLogoUpload(b.id, file);
-                      e.target.value = "";
-                    }}
-                  />
-                  <Button
-                    variant="outline"
-                    asChild
-                    disabled={uploading === b.id}
-                  >
-                    <span className="cursor-pointer">
-                      {uploading === b.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Upload className="w-4 h-4" />
-                      )}
-                      {uploading === b.id ? "Uploading…" : "Upload Logo"}
-                    </span>
-                  </Button>
-                </label>
-
+              <div className="flex items-center justify-center gap-3 p-4 border-t border-border">
                 <Button
                   variant="hero"
                   onClick={() => handleDownload(b.slug)}
@@ -183,9 +119,7 @@ const DashboardQRCode = () => {
                   ) : (
                     <Download className="w-4 h-4" />
                   )}
-                  {downloading === b.slug
-                    ? "Generating…"
-                    : "Download Poster"}
+                  {downloading === b.slug ? "Generating…" : "Download Poster"}
                 </Button>
               </div>
             </div>
