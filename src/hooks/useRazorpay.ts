@@ -95,7 +95,7 @@ export function useRazorpay() {
           key: orderData.keyId,
           amount: orderData.amount,
           currency: orderData.currency,
-          name: "ReviewBooster",
+          name: "Revuza",
           description: `${orderData.planName} Plan — Monthly`,
           order_id: orderData.orderId,
           prefill: { email: userEmail, name: userName || "" },

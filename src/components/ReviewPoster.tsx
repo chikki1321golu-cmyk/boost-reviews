@@ -4,11 +4,10 @@ import React from "react";
 interface ReviewPosterProps {
   businessName: string;
   slug: string;
-  logoUrl?: string | null;
 }
 
 const ReviewPoster = React.forwardRef<HTMLDivElement, ReviewPosterProps>(
-  ({ businessName, slug, logoUrl }, ref) => {
+  ({ businessName, slug }, ref) => {
     const qrUrl = `https://boost-reviews.vercel.app/r/${slug}`;
 
     return (
@@ -34,38 +33,35 @@ const ReviewPoster = React.forwardRef<HTMLDivElement, ReviewPosterProps>(
             padding: "36px 40px 24px",
           }}
         >
-          {/* Logo */}
+          {/* Google Logo */}
           <div
             style={{
-              width: 160,
-              height: 64,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               marginBottom: 8,
             }}
           >
-            {logoUrl ? (
-              <img
-                src={logoUrl}
-                alt={businessName}
-                style={{ maxWidth: 160, maxHeight: 64, objectFit: "contain" }}
-                crossOrigin="anonymous"
-              />
-            ) : (
+            {[
+              { letter: "G", color: "#4285F4" },
+              { letter: "o", color: "#EA4335" },
+              { letter: "o", color: "#FBBC05" },
+              { letter: "g", color: "#4285F4" },
+              { letter: "l", color: "#34A853" },
+              { letter: "e", color: "#EA4335" },
+            ].map((l, i) => (
               <span
+                key={i}
                 style={{
-                  color: "#0D4A3A",
-                  fontSize: 11,
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                  letterSpacing: 2,
-                  opacity: 0.5,
+                  color: l.color,
+                  fontSize: 48,
+                  fontWeight: 700,
+                  fontFamily: "'Product Sans', 'DM Sans', sans-serif",
                 }}
               >
-                Your Business Logo
+                {l.letter}
               </span>
-            )}
+            ))}
           </div>
 
           {/* Business name */}
@@ -295,7 +291,7 @@ const ReviewPoster = React.forwardRef<HTMLDivElement, ReviewPosterProps>(
               textTransform: "uppercase",
             }}
           >
-            WWW.REVIEWBOOSTER.IN
+            WWW.REVUZA.IN
           </span>
           <span
             style={{
