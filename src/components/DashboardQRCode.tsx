@@ -237,8 +237,8 @@ export default function DashboardQRCode({ businesses, appUrl }: DashboardQRCodeP
       {/* Poster Preview */}
       {showPoster && (
         <ReviewPoster
-          business={selectedBusiness}
-          reviewUrl={reviewFunnelUrl}
+          businessName={selectedBusiness.name}
+          slug={selectedBusiness.slug}
         />
       )}
     </div>

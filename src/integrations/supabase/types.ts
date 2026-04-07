@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
+          google_place_id: string | null
           google_review_link: string | null
           id: string
           logo_url: string | null
@@ -29,6 +30,7 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string
+          google_place_id?: string | null
           google_review_link?: string | null
           id?: string
           logo_url?: string | null
@@ -40,6 +42,7 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string
+          google_place_id?: string | null
           google_review_link?: string | null
           id?: string
           logo_url?: string | null
