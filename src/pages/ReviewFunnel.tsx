@@ -1,221 +1,264 @@
-import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+/**
+ * ReviewFunnel.tsx  (Public page: /r/:slug)
+ *
+ * FIXED: "Post on Google" button now redirects directly to the
+ * Google review composer, not the business profile page.
+ */
+
+import { useState } from "react";
+import { Star, Copy, ExternalLink, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Star, Copy, ExternalLink, ArrowRight, CheckCircle2, Sparkles, Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { toast } from "sonner";
+import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
-import ReviewTabs, { getTabsForBusiness } from "@/components/ReviewTabs";
+import { toast } from "@/hooks/use-toast";
+import { getDirectReviewUrl } from "@/utils/googlePlaceUtils";
 
+interface Business {
+  id: string;
+  name: string;
+  slug: string;
+  category: string | null;
+  google_review_link: string | null;
+  google_place_id: string | null;
+}
 
+interface ReviewFunnelProps {
+  business: Business;
+}
 
-const ReviewFunnel = () => {
-  const { slug } = useParams();
-  const [step, setStep] = useState(1);
+const STEPS = {
+  RATING: "rating",
+  TAGS: "tags",
+  POST: "post",
+} as const;
+type Step = (typeof STEPS)[keyof typeof STEPS];
+
+export default function ReviewFunnel({ business }: ReviewFunnelProps) {
+  const [step, setStep] = useState<Step>(STEPS.RATING);
   const [rating, setRating] = useState(0);
-  const [hoverRating, setHoverRating] = useState(0);
-  
-  const [reviews, setReviews] = useState<string[]>([]);
-  const [selectedReview, setSelectedReview] = useState("");
-  const [editedReview, setEditedReview] = useState("");
-  const [business, setBusiness] = useState<any>(null);
-  const [loadingBusiness, setLoadingBusiness] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
+  const [hoveredRating, setHoveredRating] = useState(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [generatedReview, setGeneratedReview] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (slug === "demo") {
-      setBusiness({ id: "demo", name: "Demo Cafe", slug: "demo", google_review_link: "https://search.google.com/local/writereview?placeid=DEMO" });
-      setLoadingBusiness(false);
+  // ✅ FIXED: Always uses the direct review URL (Place ID or write-review URL)
+  const directReviewUrl = getDirectReviewUrl(business);
+
+  const handleRatingSelect = (value: number) => {
+    setRating(value);
+    if (value >= 4) {
+      setTimeout(() => setStep(STEPS.TAGS), 250);
+    } else {
+      toast({
+        title: "Thank you for your feedback",
+        description: "We appreciate your honest opinion.",
+      });
+    }
+  };
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const handleGenerate = async () => {
+    if (selectedTags.length === 0) {
+      toast({ title: "Select at least one option", variant: "destructive" });
       return;
     }
-    const loadBusiness = async () => {
-      const { data, error } = await supabase
-        .from("businesses")
-        .select("*")
-        .eq("slug", slug)
-        .maybeSingle();
-      if (data) {
-        setBusiness(data);
-        await supabase.from("scans").insert({ business_id: data.id });
-      }
-      setLoadingBusiness(false);
-    };
-    if (slug) loadBusiness();
-  }, [slug]);
-
-  const businessName = business?.name || slug?.replace(/-/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()) || "Business";
-  const googleLink = business?.google_review_link || "https://search.google.com/local/writereview?placeid=PLACEHOLDER";
-
-
-  const generateReviews = async () => {
-    if (!business) return;
-    setGenerating(true);
+    setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-reviews", {
-        body: { rating, tags: selectedTags, businessName: business.name, businessId: business.id },
+        body: { businessName: business.name, category: business.category, rating, tags: selectedTags },
       });
       if (error) throw error;
-      setReviews(data.reviews || []);
-      setStep(3);
-    } catch (err: any) {
-      toast.error("Failed to generate reviews. Please try again.");
-      console.error(err);
+      setGeneratedReview(data.review || "");
+
+      await supabase.from("generated_reviews").insert({
+        business_id: business.id,
+        review_text: data.review,
+        rating,
+        status: "generated",
+      });
+
+      setStep(STEPS.POST);
+    } catch {
+      toast({ title: "Error generating review. Please try again.", variant: "destructive" });
     } finally {
-      setGenerating(false);
+      setIsGenerating(false);
     }
   };
 
-  const selectReview = async (review: string) => {
-    setSelectedReview(review);
-    setEditedReview(review);
-    setStep(4);
-  };
-
-  const copyReview = async () => {
-    navigator.clipboard.writeText(editedReview);
-    toast.success("Review copied to clipboard!");
-    // Track copy in DB
-    if (selectedReviewId) {
-      await supabase.from("generated_reviews").update({ copied: true }).eq("id", selectedReviewId);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(generatedReview);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    } catch {
+      toast({ title: "Failed to copy", variant: "destructive" });
     }
   };
 
-  const handleGoogleClick = async () => {
-    if (selectedReviewId) {
-      await supabase.from("generated_reviews").update({ google_clicked: true }).eq("id", selectedReviewId);
+  // ✅ FIXED: Opens the Google review WRITE form directly, not just the profile
+  const handlePostOnGoogle = () => {
+    if (!directReviewUrl) {
+      toast({
+        title: "Review link not available",
+        description: "Please contact the business owner.",
+        variant: "destructive",
+      });
+      return;
     }
+    window.open(directReviewUrl, "_blank", "noopener,noreferrer");
   };
-
-  const slideVariants = {
-    enter: { opacity: 0, x: 40 },
-    center: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -40 },
-  };
-
-  if (loadingBusiness) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!business) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center">
-          <h1 className="font-heading font-bold text-xl text-foreground mb-2">Business not found</h1>
-          <p className="text-muted-foreground">The review page for "{slug}" doesn't exist.</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-gradient-hero flex items-center justify-center mx-auto mb-3">
-            <Star className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <h1 className="font-heading font-bold text-xl text-foreground">{businessName}</h1>
-          <p className="text-sm text-muted-foreground mt-1">We'd love your feedback!</p>
+          <h1 className="text-2xl font-bold text-gray-900">{business.name}</h1>
+          <p className="text-gray-500 mt-1 text-sm">Share your experience</p>
         </div>
 
-        <div className="flex gap-1 mb-8">
-          {[1, 2, 3, 4].map((s) => (
-            <div key={s} className={`h-1 flex-1 rounded-full transition-colors duration-300 ${s <= step ? "bg-primary" : "bg-border"}`} />
-          ))}
-        </div>
-
-        <AnimatePresence mode="wait">
-          {step === 1 && (
-            <motion.div key="step1" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
-              <div className="bg-card rounded-2xl border border-border p-8 shadow-card text-center">
-                <h2 className="font-heading font-semibold text-lg text-card-foreground mb-6">How was your experience?</h2>
-                <div className="flex justify-center gap-2 mb-6">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button key={star} onMouseEnter={() => setHoverRating(star)} onMouseLeave={() => setHoverRating(0)} onClick={() => setRating(star)} className="transition-transform hover:scale-110">
-                      <Star className={`w-10 h-10 transition-colors ${star <= (hoverRating || rating) ? "fill-accent text-accent" : "text-border"}`} />
-                    </button>
-                  ))}
-                </div>
-                {rating > 0 && (
-                  <Button variant="hero" className="mt-4" onClick={() => setStep(2)}>
-                    Continue <ArrowRight className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {step === 2 && (
-            <motion.div key="step2" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
-              <div className="bg-card rounded-2xl border border-border p-8 shadow-card">
-                <h2 className="font-heading font-semibold text-lg text-card-foreground mb-2">Tell us more</h2>
-                <p className="text-sm text-muted-foreground mb-4">Tap a dimension to highlight what mattered most</p>
-                <ReviewTabs
-                  tabs={getTabsForBusiness(business?.category)}
-                  rating={rating}
-                  selectedLabels={selectedTags}
-                  onSelectionChange={setSelectedTags}
-                />
-                <Button variant="hero" className="w-full mt-4" onClick={generateReviews} disabled={generating}>
-                  {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  Generate Review Suggestions
-                </Button>
-              </div>
-            </motion.div>
-          )}
-
-          {step === 3 && (
-            <motion.div key="step3" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
-              <div className="space-y-3">
-                <h2 className="font-heading font-semibold text-lg text-card-foreground mb-1">Pick a review</h2>
-                <p className="text-sm text-muted-foreground mb-4">AI-generated suggestions based on your feedback</p>
-                {reviews.map((review, i) => (
-                  <button key={i} onClick={() => selectReview(review)}
-                    className="w-full text-left bg-card rounded-xl border border-border p-5 shadow-card hover:shadow-elevated hover:border-primary/50 transition-all"
+        {step === STEPS.RATING && (
+          <Card>
+            <CardContent className="pt-8 pb-8 text-center">
+              <h2 className="text-xl font-semibold mb-2">How was your experience?</h2>
+              <p className="text-gray-400 text-sm mb-6">Tap a star to rate</p>
+              <div className="flex justify-center gap-2 mb-4">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => handleRatingSelect(star)}
+                    onMouseEnter={() => setHoveredRating(star)}
+                    onMouseLeave={() => setHoveredRating(0)}
+                    className="transition-transform active:scale-90 hover:scale-110"
                   >
-                    <p className="text-sm text-card-foreground leading-relaxed">{review}</p>
+                    <Star
+                      size={48}
+                      className={
+                        star <= (hoveredRating || rating)
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-gray-200"
+                      }
+                    />
                   </button>
                 ))}
               </div>
-            </motion.div>
-          )}
+            </CardContent>
+          </Card>
+        )}
 
-          {step === 4 && (
-            <motion.div key="step4" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
-              <div className="bg-card rounded-2xl border border-border p-8 shadow-card">
-                <h2 className="font-heading font-semibold text-lg text-card-foreground mb-4">Edit & Post</h2>
-                <textarea value={editedReview} onChange={(e) => setEditedReview(e.target.value)} rows={5}
-                  className="w-full rounded-xl border border-input bg-background p-4 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring mb-4"
-                />
-                <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1" onClick={copyReview}>
-                    <Copy className="w-4 h-4" /> Copy
-                  </Button>
-                  <Button variant="hero" className="flex-1" asChild>
-                    <a href={googleLink} target="_blank" rel="noopener noreferrer" onClick={handleGoogleClick}>
-                      <ExternalLink className="w-4 h-4" /> Post on Google
-                    </a>
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2 mt-4 justify-center text-primary">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span className="text-sm font-medium">Thank you for your review!</span>
-                </div>
+        {step === STEPS.TAGS && (
+          <Card>
+            <CardContent className="pt-8 pb-8">
+              <h2 className="text-xl font-semibold text-center mb-1">What did you enjoy?</h2>
+              <p className="text-gray-400 text-sm text-center mb-6">
+                Select all that apply — we'll write the review for you!
+              </p>
+              <TagGrid
+                category={business.category}
+                selected={selectedTags}
+                onToggle={toggleTag}
+              />
+              <Button
+                onClick={handleGenerate}
+                disabled={isGenerating || selectedTags.length === 0}
+                className="w-full mt-6 bg-green-600 hover:bg-green-700 text-white"
+              >
+                {isGenerating ? "Generating..." : "✨ Generate My Review"}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === STEPS.POST && (
+          <Card>
+            <CardContent className="pt-8 pb-8">
+              <div className="text-center mb-5">
+                <CheckCircle className="text-green-500 mx-auto mb-2" size={44} />
+                <h2 className="text-xl font-semibold">Your review is ready!</h2>
+                <p className="text-gray-400 text-sm mt-1">
+                  Step 1: Copy → Step 2: Post on Google → Paste & Submit
+                </p>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
-        <p className="text-center text-xs text-muted-foreground mt-8">Powered by M&M Fintech Digital Solution</p>
+              <div className="bg-gray-50 border rounded-xl p-4 mb-4 text-sm text-gray-700 leading-relaxed min-h-[100px] whitespace-pre-wrap">
+                {generatedReview}
+              </div>
+
+              <Button variant="outline" onClick={handleCopy} className="w-full mb-3">
+                {copied ? (
+                  <><CheckCircle size={16} className="mr-2 text-green-500" />Copied!</>
+                ) : (
+                  <><Copy size={16} className="mr-2" />Copy Review</>
+                )}
+              </Button>
+
+              {directReviewUrl ? (
+                <Button
+                  onClick={handlePostOnGoogle}
+                  className="w-full bg-[#4285F4] hover:bg-[#3367D6] text-white font-semibold"
+                >
+                  <ExternalLink size={16} className="mr-2" />
+                  Post on Google
+                </Button>
+              ) : (
+                <p className="text-center text-sm text-gray-400">
+                  Google review link not set up for this business.
+                </p>
+              )}
+
+              <p className="text-xs text-gray-400 text-center mt-4">
+                💡 After clicking, paste the copied review in the Google form
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
+}
+
+const TAGS_BY_CATEGORY: Record<string, string[]> = {
+  restaurant: ["Food Quality", "Taste", "Portion Size", "Service", "Ambience", "Value for Money"],
+  cafe: ["Coffee", "Food", "Ambience", "Staff", "WiFi", "Value"],
+  hotel: ["Rooms", "Cleanliness", "Staff", "Location", "Food", "Value"],
+  salon: ["Skilled Staff", "Cleanliness", "Atmosphere", "On Time", "Value", "Products"],
+  gym: ["Equipment", "Cleanliness", "Trainers", "Classes", "Atmosphere", "Value"],
+  clinic: ["Doctor", "Staff", "Cleanliness", "Wait Time", "Diagnosis", "Overall Care"],
+  shop: ["Product Quality", "Variety", "Pricing", "Staff", "Service", "Store Ambience"],
+  default: ["Quality", "Service", "Staff", "Value", "Cleanliness", "Overall Experience"],
 };
 
-export default ReviewFunnel;
+function TagGrid({
+  category,
+  selected,
+  onToggle,
+}: {
+  category: string | null;
+  selected: string[];
+  onToggle: (t: string) => void;
+}) {
+  const key = (category ?? "").toLowerCase();
+  const tags = TAGS_BY_CATEGORY[key] ?? TAGS_BY_CATEGORY.default;
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {tags.map((tag) => (
+        <button
+          key={tag}
+          onClick={() => onToggle(tag)}
+          className={`px-3 py-3 rounded-xl text-sm font-medium border transition-all text-left ${
+            selected.includes(tag)
+              ? "bg-green-600 text-white border-green-600 shadow-sm"
+              : "bg-white text-gray-700 border-gray-200 hover:border-green-300"
+          }`}
+        >
+          {selected.includes(tag) ? "✓ " : ""}{tag}
+        </button>
+      ))}
+    </div>
+  );
+}
