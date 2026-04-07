@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star, Copy, ExternalLink, CheckCircle } from "lucide-react";
+import { Star, Copy, ExternalLink, CheckCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
@@ -32,11 +32,13 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [generatedReview, setGeneratedReview] = useState("");
+  const [generatedReviews, setGeneratedReviews] = useState<string[]>([]);
+  const [selectedReviewIndex, setSelectedReviewIndex] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const directReviewUrl = getDirectReviewUrl(business);
+  const currentReview = generatedReviews[selectedReviewIndex] || "";
 
   const handleRatingSelect = (value: number) => {
     setRating(value);
@@ -65,18 +67,22 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-reviews", {
-        body: { businessName: business.name, category: business.category, rating, tags: selectedTags },
+        body: {
+          businessName: business.name,
+          businessId: business.id,
+          category: business.category,
+          rating,
+          tags: selectedTags,
+        },
       });
       if (error) throw error;
 
-      setGeneratedReview(data.review || "");
-      setStep(STEPS.POST);
+      const reviews: string[] = data.reviews || (data.review ? [data.review] : []);
+      if (reviews.length === 0) throw new Error("No reviews generated");
 
-      await supabase.from("generated_reviews").insert({
-        business_id: business.id,
-        review_text: data.review,
-        rating,
-      });
+      setGeneratedReviews(reviews);
+      setSelectedReviewIndex(0);
+      setStep(STEPS.POST);
     } catch {
       toast({ title: "Error generating review. Please try again.", variant: "destructive" });
     } finally {
@@ -86,38 +92,32 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(generatedReview);
+      await navigator.clipboard.writeText(currentReview);
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
-
-      await supabase
-        .from("generated_reviews")
-        .update({ copied: true })
-        .eq("business_id", business.id)
-        .eq("copied", false);
     } catch {
       toast({ title: "Failed to copy", variant: "destructive" });
     }
   };
 
-  const handlePostOnGoogle = async () => {
+  const handlePostOnGoogle = () => {
     if (!directReviewUrl) {
       toast({ title: "No Google review link configured", variant: "destructive" });
       return;
     }
-
-    await supabase
-      .from("generated_reviews")
-      .update({ google_clicked: true })
-      .eq("business_id", business.id)
-      .eq("copied", true);
-
     window.open(directReviewUrl, "_blank", "noopener,noreferrer");
   };
 
+  const cycleReview = () => {
+    if (generatedReviews.length > 1) {
+      setSelectedReviewIndex((prev) => (prev + 1) % generatedReviews.length);
+      setCopied(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md flex-1 flex flex-col justify-center">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">{business.name}</h1>
           <p className="text-gray-500 mt-1">Share your experience</p>
@@ -180,9 +180,19 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
                 <p className="text-gray-500 text-sm mt-1">Copy it, then click "Post on Google"</p>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4 mb-4 text-sm text-gray-700 leading-relaxed min-h-[100px]">
-                {generatedReview}
+              <div className="bg-gray-50 rounded-lg p-4 mb-2 text-sm text-gray-700 leading-relaxed min-h-[100px]">
+                {currentReview}
               </div>
+
+              {generatedReviews.length > 1 && (
+                <button
+                  onClick={cycleReview}
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 mx-auto mb-3"
+                >
+                  <RefreshCw size={12} />
+                  Try another ({selectedReviewIndex + 1}/{generatedReviews.length})
+                </button>
+              )}
 
               <Button variant="outline" onClick={handleCopy} className="w-full mb-3">
                 {copied ? (
@@ -210,6 +220,8 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
           </Card>
         )}
       </div>
+
+      <p className="text-xs text-gray-400 mt-6 mb-2">Powered by M&M Fintech</p>
     </div>
   );
 }
