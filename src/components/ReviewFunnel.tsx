@@ -18,16 +18,38 @@ interface ReviewFunnelProps {
   business: Business;
 }
 
-// ✅ Helper: Build the direct Google review link
+// ✅ Helper: Build the direct Google review write form URL
 function getDirectReviewUrl(business: Business): string | null {
   // Prefer Place ID — opens the review composer directly
-  if (business.google_place_id) {
-    return `https://search.google.com/local/writereview?placeid=${business.google_place_id}`;
+  if (business.google_place_id && business.google_place_id.trim() !== "") {
+    return `https://search.google.com/local/writereview?placeid=${business.google_place_id.trim()}`;
   }
-  // Fallback: use whatever URL was saved (may open profile, not review form)
-  if (business.google_review_link) {
+
+  // If google_review_link is already a write-review URL, use it directly
+  if (business.google_review_link && business.google_review_link.includes("writereview")) {
     return business.google_review_link;
   }
+
+  // If google_review_link is a maps/place URL, try to extract Place ID and convert
+  if (business.google_review_link) {
+    const url = business.google_review_link;
+
+    // Extract place_id from URL like: ...?q=place_id:XXXX or ...place_id=XXXX
+    const placeIdMatch = url.match(/place_id[=:]([A-Za-z0-9_-]+)/);
+    if (placeIdMatch && placeIdMatch[1]) {
+      return `https://search.google.com/local/writereview?placeid=${placeIdMatch[1]}`;
+    }
+
+    // Fallback: append &action=reviews to maps URL to attempt direct review tab
+    // (still better than plain profile URL)
+    if (url.includes("google.com/maps")) {
+      return url.includes("?") ? `${url}&action=reviews` : `${url}?action=reviews`;
+    }
+
+    // Last resort: return as-is
+    return url;
+  }
+
   return null;
 }
 
@@ -132,7 +154,7 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
     }
   };
 
-  // ✅ FIXED: Opens direct review composer, not just the business profile
+  // ✅ FIXED: Opens direct review write form, not business profile
   const handlePostOnGoogle = async () => {
     if (!directReviewUrl) {
       toast({
@@ -150,7 +172,7 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
       .eq("business_id", business.id)
       .eq("status", "copied");
 
-    // ✅ Opens directly to the review write form
+    // ✅ Opens directly to the Google review write form
     window.open(directReviewUrl, "_blank", "noopener,noreferrer");
   };
 
@@ -266,7 +288,7 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
                 )}
               </Button>
 
-              {/* ✅ FIXED: Post on Google button — redirects directly to review form */}
+              {/* ✅ Post on Google — redirects directly to review write form */}
               {directReviewUrl ? (
                 <Button
                   onClick={handlePostOnGoogle}
