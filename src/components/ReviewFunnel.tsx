@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
-import { getDirectReviewUrl } from "@/lib/googlePlaceUtils";
 
 interface Business {
   id: string;
@@ -37,7 +36,9 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const directReviewUrl = getDirectReviewUrl(business);
+  const directReviewUrl = business.google_place_id
+  ? `https://search.google.com/local/writereview?placeid=${business.google_place_id}`
+  : business.google_review_link;
   const currentReview = generatedReviews[selectedReviewIndex] || "";
 
   const handleRatingSelect = (value: number) => {
