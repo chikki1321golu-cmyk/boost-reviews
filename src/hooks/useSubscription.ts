@@ -15,7 +15,6 @@ export interface SubscriptionInfo {
 }
 
 const PLAN_LIMITS: Record<string, number> = {
-  trial: 1,
   starter: 1,
   growth: 3,
   agency: 20,
@@ -24,6 +23,7 @@ const PLAN_LIMITS: Record<string, number> = {
 export const useSubscription = (): SubscriptionInfo => {
   const { user } = useAuth();
 
+  // Fetch the most recent active subscription
   const { data: subscription, isLoading } = useQuery({
     queryKey: ["subscription", user?.id],
     queryFn: async () => {
@@ -43,16 +43,25 @@ export const useSubscription = (): SubscriptionInfo => {
   const now = new Date();
   const isTrial = subscription?.is_trial ?? false;
   const trialEnd = subscription?.trial_end ? new Date(subscription.trial_end) : null;
+
+  // Trial is active only if is_trial=true AND trial hasn't expired
   const isTrialActive = isTrial && !!trialEnd && trialEnd > now;
+  // Trial expired = was a trial but time ran out
   const isTrialExpired = isTrial && !!trialEnd && trialEnd <= now;
+
+  // Paid = not a trial AND status is active
   const isPaid = !isTrial && subscription?.status === "active";
+
+  // Can generate reviews only during active trial or with paid plan
   const canGenerateReviews = isTrialActive || isPaid;
+
   const plan = subscription?.plan ?? "none";
   const maxBusinesses = PLAN_LIMITS[plan] ?? 1;
 
-  const trialDaysLeft = isTrialActive && trialEnd
-    ? Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-    : 0;
+  const trialDaysLeft =
+    isTrialActive && trialEnd
+      ? Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+      : 0;
 
   return {
     subscription,
