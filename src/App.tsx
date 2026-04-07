@@ -7,7 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import ReviewFunnel from "./pages/ReviewFunnel";
+import ReviewFunnelPage from "./pages/ReviewFunnel";
 import Dashboard from "./pages/Dashboard";
 import DashboardBusiness from "./pages/DashboardBusiness";
 import DashboardQRCode from "./pages/DashboardQRCode";
@@ -28,7 +28,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            <Route path="/r/:slug" element={<ReviewFunnel />} />
+            <Route path="/r/:slug" element={<ReviewFunnelPage />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/dashboard/business" element={<ProtectedRoute><DashboardBusiness /></ProtectedRoute>} />
             <Route path="/dashboard/qrcode" element={<ProtectedRoute><DashboardQRCode /></ProtectedRoute>} />

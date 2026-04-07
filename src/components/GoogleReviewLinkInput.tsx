@@ -17,7 +17,7 @@ import { useState } from "react";
 import { CheckCircle, AlertCircle, Loader2, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { resolveGoogleBusinessUrl } from "@/utils/googlePlaceUtils";
+import { resolveGoogleBusinessUrl } from "@/lib/googlePlaceUtils";
 
 interface Props {
   value: string;
