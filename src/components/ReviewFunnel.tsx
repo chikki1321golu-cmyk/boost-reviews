@@ -267,18 +267,104 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
 }
 
 const BUSINESS_TAGS: Record<string, string[]> = {
-  restaurant: ["Food Quality", "Service", "Ambience", "Value for Money", "Cleanliness", "Speed"],
-  cafe: ["Coffee Quality", "Food", "Ambience", "Staff", "WiFi", "Value"],
-  salon: ["Skill", "Cleanliness", "Staff", "Timing", "Value", "Products"],
-  hotel: ["Room Quality", "Cleanliness", "Staff", "Location", "Facilities", "Value"],
-  gym: ["Equipment", "Cleanliness", "Trainers", "Classes", "Value", "Atmosphere"],
-  retail: ["Product Quality", "Staff", "Pricing", "Variety", "Service", "Store Layout"],
-  default: ["Quality", "Service", "Value", "Staff", "Cleanliness", "Experience"],
+  // Food & Beverage
+  restaurant: ["Food Quality", "Taste", "Portion Size", "Service", "Ambience", "Value for Money", "Cleanliness", "Speed", "Staff Behaviour"],
+  dhaba: ["Taste", "Authentic Flavour", "Quantity", "Value for Money", "Cleanliness", "Service Speed", "Seating"],
+  cafe: ["Coffee Quality", "Snacks & Food", "Ambience", "WiFi", "Staff", "Value for Money", "Seating Comfort"],
+  "fast food": ["Taste", "Speed", "Value for Money", "Cleanliness", "Portion Size", "Packaging", "Staff"],
+  "sweet shop": ["Taste & Freshness", "Variety", "Packaging", "Value for Money", "Hygiene", "Staff Behaviour"],
+  "juice bar": ["Freshness", "Taste", "Hygiene", "Value for Money", "Speed", "Variety"],
+  bakery: ["Freshness", "Taste", "Variety", "Packaging", "Value for Money", "Staff"],
+  "ice cream": ["Flavour Variety", "Taste", "Portion Size", "Value for Money", "Cleanliness", "Staff"],
+  "tiffin service": ["Taste", "Timeliness", "Portion Size", "Value for Money", "Hygiene", "Variety"],
+
+  // Retail & Shopping
+  retail: ["Product Quality", "Variety", "Pricing", "Staff Helpfulness", "Billing Speed", "Cleanliness", "Return Policy"],
+  grocery: ["Freshness", "Variety", "Pricing", "Staff", "Cleanliness", "Availability", "Billing Speed"],
+  "mobile shop": ["Product Variety", "Pricing", "Staff Knowledge", "After-Sales Service", "Genuine Products", "Speed"],
+  "clothing store": ["Variety", "Quality", "Pricing", "Staff Helpfulness", "Trial Room", "Billing Speed"],
+  "jewellery shop": ["Design Variety", "Quality", "Pricing", "Staff Behaviour", "Transparency", "Packaging"],
+  pharmacy: ["Medicine Availability", "Staff Knowledge", "Pricing", "Cleanliness", "Speed", "Behaviour"],
+  "medical store": ["Availability", "Pricing", "Staff Knowledge", "Cleanliness", "Speed"],
+  "electronics shop": ["Product Variety", "Pricing", "Staff Knowledge", "After-Sales Service", "Genuine Products"],
+  stationery: ["Variety", "Pricing", "Availability", "Staff", "Quality"],
+
+  // Health & Wellness
+  hospital: ["Doctor Expertise", "Staff Behaviour", "Cleanliness", "Wait Time", "Facilities", "Affordability"],
+  clinic: ["Doctor Expertise", "Wait Time", "Staff Behaviour", "Cleanliness", "Affordability", "Availability"],
+  pharmacy: ["Medicine Availability", "Staff Knowledge", "Pricing", "Cleanliness", "Speed"],
+  gym: ["Equipment Quality", "Cleanliness", "Trainers", "Classes & Programs", "Value for Money", "Atmosphere", "Timings"],
+  "yoga studio": ["Instructor Quality", "Cleanliness", "Atmosphere", "Timings", "Value for Money", "Batch Size"],
+  spa: ["Service Quality", "Cleanliness", "Staff Behaviour", "Ambience", "Value for Money", "Relaxation"],
+  "ayurveda clinic": ["Doctor Expertise", "Treatment Quality", "Cleanliness", "Staff Behaviour", "Affordability"],
+  "diagnostic center": ["Report Accuracy", "Speed", "Staff Behaviour", "Cleanliness", "Affordability", "Home Collection"],
+
+  // Beauty & Personal Care
+  salon: ["Skill & Expertise", "Cleanliness & Hygiene", "Staff Behaviour", "Timing", "Value for Money", "Products Used", "Results"],
+  "beauty parlour": ["Skill", "Hygiene", "Staff Behaviour", "Results", "Value for Money", "Ambience"],
+  "mens salon": ["Haircut Quality", "Hygiene", "Staff Skill", "Speed", "Value for Money", "Behaviour"],
+  "nail studio": ["Nail Art Quality", "Hygiene", "Product Quality", "Staff Skill", "Value for Money"],
+  "tattoo studio": ["Artist Skill", "Design Quality", "Hygiene", "Safety", "Value for Money", "Behaviour"],
+
+  // Automotive
+  "car service": ["Service Quality", "Timely Delivery", "Transparency", "Staff Behaviour", "Value for Money", "Cleanliness"],
+  "bike service": ["Service Quality", "Timely Delivery", "Transparency", "Value for Money", "Staff Behaviour"],
+  "car wash": ["Cleaning Quality", "Speed", "Value for Money", "Staff Behaviour", "Care of Vehicle"],
+  "tyre shop": ["Product Quality", "Speed", "Pricing", "Staff Knowledge", "Service"],
+  "driving school": ["Instructor Behaviour", "Teaching Quality", "Timings", "Value for Money", "Vehicle Condition"],
+
+  // Education
+  "coaching class": ["Teaching Quality", "Study Material", "Doubt Solving", "Timings", "Value for Money", "Results"],
+  school: ["Teaching Quality", "Faculty", "Infrastructure", "Activities", "Management", "Fees"],
+  college: ["Faculty Quality", "Infrastructure", "Placement Support", "Management", "Value for Money"],
+  "dance class": ["Instructor Quality", "Atmosphere", "Timings", "Value for Money", "Learning Speed"],
+  "music class": ["Instructor Quality", "Instruments", "Timings", "Value for Money", "Curriculum"],
+  "spoken english": ["Teaching Method", "Instructor", "Timings", "Value for Money", "Results"],
+
+  // Home Services
+  "interior designer": ["Design Quality", "On-Time Delivery", "Budget Adherence", "Communication", "Material Quality"],
+  "plumber": ["Work Quality", "Speed", "Pricing", "Behaviour", "Reliability"],
+  "electrician": ["Work Quality", "Speed", "Safety", "Pricing", "Behaviour"],
+  "carpenter": ["Work Quality", "Material", "Pricing", "On-Time Delivery", "Behaviour"],
+  "pest control": ["Effectiveness", "Safety", "Pricing", "Staff Behaviour", "Punctuality"],
+  "cleaning service": ["Cleaning Quality", "Punctuality", "Staff Behaviour", "Value for Money", "Reliability"],
+  "packers movers": ["Packing Quality", "Timely Delivery", "Pricing", "Staff Behaviour", "Item Safety"],
+
+  // Finance & Professional Services
+  "ca firm": ["Expertise", "Timely Filing", "Communication", "Transparency", "Value for Money"],
+  "legal services": ["Expertise", "Communication", "Transparency", "Timely Delivery", "Fees"],
+  "insurance agent": ["Product Knowledge", "Transparency", "After-Sales Support", "Behaviour", "Claim Support"],
+  "real estate": ["Property Options", "Transparency", "Staff Behaviour", "After-Sales Service", "Value for Money"],
+  "travel agent": ["Package Value", "Itinerary Quality", "Support", "Transparency", "Hotel Quality"],
+
+  // Hospitality & Stay
+  hotel: ["Room Cleanliness", "Staff Behaviour", "Food Quality", "Location", "Facilities", "Value for Money", "Check-in Speed"],
+  "guest house": ["Cleanliness", "Staff Behaviour", "Value for Money", "Location", "Facilities"],
+  "pg": ["Cleanliness", "Food Quality", "Security", "Value for Money", "Staff Behaviour", "WiFi"],
+  "resort": ["Ambience", "Room Quality", "Staff Behaviour", "Food", "Activities", "Value for Money"],
+
+  // Events & Entertainment
+  "event planner": ["Creativity", "On-Time Execution", "Budget Adherence", "Decoration Quality", "Communication"],
+  "photographer": ["Photo Quality", "Behaviour", "Timely Delivery", "Value for Money", "Equipment"],
+  "catering": ["Food Taste", "Variety", "Presentation", "Timely Service", "Hygiene", "Value for Money"],
+  "banquet hall": ["Venue Quality", "Cleanliness", "Staff", "Catering", "Value for Money", "Parking"],
+  "cinema": ["Screen Quality", "Sound", "Cleanliness", "Seating Comfort", "Staff Behaviour", "Snacks"],
+
+  // Default fallback
+  default: ["Quality", "Service", "Value for Money", "Staff Behaviour", "Cleanliness", "Overall Experience"],
 };
 
-function TagSelector({ category, selected, onToggle }: { category: string | null; selected: string[]; onToggle: (tag: string) => void }) {
-  const key = (category ?? "").toLowerCase();
-  const tags = BUSINESS_TAGS[key] ?? BUSINESS_TAGS.default;
+function getTagsForBusiness(category: string | null): string[] {
+  if (!category) return BUSINESS_TAGS.default;
+  const key = category.toLowerCase().trim();
+  // Exact match first
+  if (BUSINESS_TAGS[key]) return BUSINESS_TAGS[key];
+  // Partial match — find closest key
+  const match = Object.keys(BUSINESS_TAGS).find(
+    (k) => k !== "default" && (key.includes(k) || k.includes(key))
+  );
+  return match ? BUSINESS_TAGS[match] : BUSINESS_TAGS.default;
+}
   return (
     <div className="flex flex-wrap gap-2 justify-center">
       {tags.map((tag) => (
