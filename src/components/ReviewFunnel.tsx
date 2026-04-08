@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Star, Copy, ExternalLink, CheckCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,10 +35,44 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
   const [selectedReviewIndex, setSelectedReviewIndex] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [resolvedReviewUrl, setResolvedReviewUrl] = useState<string | null>(null);
+  const [isLoadingReviewUrl, setIsLoadingReviewUrl] = useState(false);
 
-  const directReviewUrl = business.google_place_id
-  ? `https://search.google.com/local/writereview?placeid=${business.google_place_id}`
-  : business.google_review_link;
+  useEffect(() => {
+    const resolveUrl = async () => {
+      if (!business) return;
+      setIsLoadingReviewUrl(true);
+      let urlToUse: string | null = null;
+
+      if (business.google_place_id) {
+        urlToUse = `https://search.google.com/local/writereview?placeid=${business.google_place_id}`;
+      } else if (business.google_review_link && business.google_review_link.includes("writereview")) {
+        urlToUse = business.google_review_link;
+      } else if (business.google_review_link) {
+        try {
+          const { data, error } = await supabase.functions.invoke("resolve-google-place", {
+            body: { url: business.google_review_link, businessId: business.id },
+          });
+          if (error) {
+            console.error("Error resolving Google review link:", error);
+            urlToUse = business.google_review_link;
+          } else if (data && data.reviewUrl) {
+            urlToUse = data.reviewUrl;
+          } else {
+            urlToUse = business.google_review_link;
+          }
+        } catch (err) {
+          console.error("Unexpected error resolving Google review link:", err);
+          urlToUse = business.google_review_link;
+        }
+      }
+
+      setResolvedReviewUrl(urlToUse);
+      setIsLoadingReviewUrl(false);
+    };
+
+    resolveUrl();
+  }, [business?.google_place_id, business?.google_review_link, business?.id]);
   const currentReview = generatedReviews[selectedReviewIndex] || "";
 
   const handleRatingSelect = (value: number) => {
@@ -102,11 +136,12 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
   };
 
   const handlePostOnGoogle = () => {
-    if (!directReviewUrl) {
+    if (isLoadingReviewUrl) return;
+    if (!resolvedReviewUrl) {
       toast({ title: "No Google review link configured", variant: "destructive" });
       return;
     }
-    window.open(directReviewUrl, "_blank", "noopener,noreferrer");
+    window.open(resolvedReviewUrl, "_blank", "noopener,noreferrer");
   };
 
   const cycleReview = () => {
@@ -203,10 +238,14 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
                 )}
               </Button>
 
-              {directReviewUrl ? (
-                <Button onClick={handlePostOnGoogle} className="w-full bg-blue-600 hover:bg-blue-700">
+              {(resolvedReviewUrl || isLoadingReviewUrl) ? (
+                <Button
+                  onClick={handlePostOnGoogle}
+                  disabled={isLoadingReviewUrl || !resolvedReviewUrl}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
                   <ExternalLink size={16} className="mr-2" />
-                  Post on Google
+                  {isLoadingReviewUrl ? "Preparing link..." : "Post on Google"}
                 </Button>
               ) : (
                 <p className="text-center text-sm text-gray-400 mt-2">
