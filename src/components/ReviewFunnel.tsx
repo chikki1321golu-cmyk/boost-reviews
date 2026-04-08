@@ -284,8 +284,7 @@ const BUSINESS_TAGS: Record<string, string[]> = {
   "mobile shop": ["Product Variety", "Pricing", "Staff Knowledge", "After-Sales Service", "Genuine Products", "Speed"],
   "clothing store": ["Variety", "Quality", "Pricing", "Staff Helpfulness", "Trial Room", "Billing Speed"],
   "jewellery shop": ["Design Variety", "Quality", "Pricing", "Staff Behaviour", "Transparency", "Packaging"],
-  pharmacy: ["Medicine Availability", "Staff Knowledge", "Pricing", "Cleanliness", "Speed", "Behaviour"],
-  "medical store": ["Availability", "Pricing", "Staff Knowledge", "Cleanliness", "Speed"],
+    "medical store": ["Availability", "Pricing", "Staff Knowledge", "Cleanliness", "Speed"],
   "electronics shop": ["Product Variety", "Pricing", "Staff Knowledge", "After-Sales Service", "Genuine Products"],
   stationery: ["Variety", "Pricing", "Availability", "Staff", "Quality"],
 
