@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Star, Copy, ExternalLink, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,41 +18,6 @@ interface ReviewFunnelProps {
   business: Business;
 }
 
-// ✅ Helper: Build the direct Google review write form URL
-function getDirectReviewUrl(business: Business): string | null {
-  // Prefer Place ID — opens the review composer directly
-  if (business.google_place_id && business.google_place_id.trim() !== "") {
-    return `https://search.google.com/local/writereview?placeid=${business.google_place_id.trim()}`;
-  }
-
-  // If google_review_link is already a write-review URL, use it directly
-  if (business.google_review_link && business.google_review_link.includes("writereview")) {
-    return business.google_review_link;
-  }
-
-  // If google_review_link is a maps/place URL, try to extract Place ID and convert
-  if (business.google_review_link) {
-    const url = business.google_review_link;
-
-    // Extract place_id from URL like: ...?q=place_id:XXXX or ...place_id=XXXX
-    const placeIdMatch = url.match(/place_id[=:]([A-Za-z0-9_-]+)/);
-    if (placeIdMatch && placeIdMatch[1]) {
-      return `https://search.google.com/local/writereview?placeid=${placeIdMatch[1]}`;
-    }
-
-    // Fallback: append &action=reviews to maps URL to attempt direct review tab
-    // (still better than plain profile URL)
-    if (url.includes("google.com/maps")) {
-      return url.includes("?") ? `${url}&action=reviews` : `${url}?action=reviews`;
-    }
-
-    // Last resort: return as-is
-    return url;
-  }
-
-  return null;
-}
-
 const STEPS = {
   RATING: "rating",
   GENERATE: "generate",
@@ -70,15 +35,67 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const directReviewUrl = getDirectReviewUrl(business);
+  // Resolved direct review URL (may differ from what's stored in DB)
+  const [resolvedReviewUrl, setResolvedReviewUrl] = useState<string | null>(null);
+  const [isResolvingUrl, setIsResolvingUrl] = useState(false);
+
+  // On mount: resolve the Google review link to the direct write-form URL
+  useEffect(() => {
+    const resolveUrl = async () => {
+      // If google_place_id already set in DB, build URL directly — no API call needed
+      if (business.google_place_id && business.google_place_id.trim() !== "") {
+        setResolvedReviewUrl(
+          `https://search.google.com/local/writereview?placeid=${business.google_place_id.trim()}`
+        );
+        return;
+      }
+
+      // If google_review_link is already a write-review URL, use it directly
+      if (
+        business.google_review_link &&
+        business.google_review_link.includes("writereview")
+      ) {
+        setResolvedReviewUrl(business.google_review_link);
+        return;
+      }
+
+      // Otherwise call the edge function to expand short URL + extract Place ID
+      if (business.google_review_link) {
+        setIsResolvingUrl(true);
+        try {
+          const { data, error } = await supabase.functions.invoke(
+            "resolve-google-place",
+            {
+              body: {
+                url: business.google_review_link,
+                businessId: business.id, // edge fn will also update DB for next time
+              },
+            }
+          );
+
+          if (error) throw error;
+
+          if (data?.reviewUrl) {
+            setResolvedReviewUrl(data.reviewUrl);
+          }
+        } catch (err) {
+          console.error("Failed to resolve Google review URL:", err);
+          // Fallback: use whatever was stored
+          setResolvedReviewUrl(business.google_review_link);
+        } finally {
+          setIsResolvingUrl(false);
+        }
+      }
+    };
+
+    resolveUrl();
+  }, [business]);
 
   const handleRatingSelect = (value: number) => {
     setRating(value);
     if (value >= 4) {
-      // Good rating — move to generate step
       setTimeout(() => setStep(STEPS.GENERATE), 300);
     } else {
-      // Low rating — handle differently (internal feedback)
       toast({
         title: "Thank you for your feedback",
         description: "We'll use this to improve our service.",
@@ -104,7 +121,7 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
 
     setIsGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-review", {
+      const { data, error } = await supabase.functions.invoke("generate-reviews", {
         body: {
           businessName: business.name,
           category: business.category,
@@ -115,13 +132,18 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
 
       if (error) throw error;
 
-      setGeneratedReview(data.review || "");
+      // Support both data.review and data.reviews[0]
+      const reviewText =
+        data?.review ||
+        (Array.isArray(data?.reviews) ? data.reviews[0] : null) ||
+        "";
+
+      setGeneratedReview(reviewText);
       setStep(STEPS.POST);
 
-      // Track generated review
       await supabase.from("generated_reviews").insert({
         business_id: business.id,
-        review_text: data.review,
+        review_text: reviewText,
         rating,
         status: "generated",
       });
@@ -143,7 +165,6 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
 
-      // Track copy
       await supabase
         .from("generated_reviews")
         .update({ status: "copied" })
@@ -154,9 +175,8 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
     }
   };
 
-  // ✅ FIXED: Opens direct review write form, not business profile
   const handlePostOnGoogle = async () => {
-    if (!directReviewUrl) {
+    if (!resolvedReviewUrl) {
       toast({
         title: "No Google review link configured",
         description: "Please contact the business owner.",
@@ -165,15 +185,14 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
       return;
     }
 
-    // Track click
     await supabase
       .from("generated_reviews")
       .update({ status: "clicked" })
       .eq("business_id", business.id)
       .eq("status", "copied");
 
-    // ✅ Opens directly to the Google review write form
-    window.open(directReviewUrl, "_blank", "noopener,noreferrer");
+    // Opens directly to the Google review WRITE form
+    window.open(resolvedReviewUrl, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -288,14 +307,15 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
                 )}
               </Button>
 
-              {/* ✅ Post on Google — redirects directly to review write form */}
-              {directReviewUrl ? (
+              {/* Post on Google button */}
+              {resolvedReviewUrl ? (
                 <Button
                   onClick={handlePostOnGoogle}
+                  disabled={isResolvingUrl}
                   className="w-full bg-blue-600 hover:bg-blue-700"
                 >
                   <ExternalLink size={16} className="mr-2" />
-                  Post on Google
+                  {isResolvingUrl ? "Preparing link..." : "Post on Google"}
                 </Button>
               ) : (
                 <p className="text-center text-sm text-gray-400 mt-2">
