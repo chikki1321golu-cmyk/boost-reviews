@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Star, Copy, ExternalLink, CheckCircle } from "lucide-react";
+import { useState, useRef } from "react";
+import { Star, Copy, ExternalLink, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
@@ -33,7 +33,11 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [generatedReview, setGeneratedReview] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Cache the resolved review URL so we don't call the edge function twice
+  const resolvedReviewUrlRef = useRef<string | null>(null);
 
   const handleRatingSelect = (value: number) => {
     setRating(value);
@@ -118,38 +122,83 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
     }
   };
 
-  const handlePostOnGoogle = async () => {
-    let reviewUrl = business.google_review_link;
+  /**
+   * BUILD the correct Google write-review URL.
+   * Priority:
+   *  1. Already cached from a previous click this session
+   *  2. google_place_id stored in DB  →  writereview?placeid=...
+   *  3. google_review_link already is a writereview URL  →  use as-is
+   *  4. Call resolve-google-place edge function to resolve any URL type
+   *  5. No link at all  →  show error
+   */
+  const getReviewUrl = async (): Promise<string | null> => {
+    // 1. Cached
+    if (resolvedReviewUrlRef.current) return resolvedReviewUrlRef.current;
 
+    // 2. Place ID in DB — most reliable
     if (business.google_place_id) {
-      reviewUrl = `https://search.google.com/local/writereview?placeid=${business.google_place_id}`;
-    } else if (reviewUrl && !reviewUrl.includes("writereview")) {
+      const url = `https://search.google.com/local/writereview?placeid=${business.google_place_id}`;
+      resolvedReviewUrlRef.current = url;
+      return url;
+    }
+
+    // 3. Already a writereview URL
+    if (business.google_review_link?.includes("writereview")) {
+      resolvedReviewUrlRef.current = business.google_review_link;
+      return business.google_review_link;
+    }
+
+    // 4. Need to resolve — ANY other Google URL (maps link, short link, profile, etc.)
+    if (business.google_review_link) {
       try {
-        const { data } = await supabase.functions.invoke("resolve-google-place", {
-          body: { url: reviewUrl, businessId: business.id },
+        const { data, error } = await supabase.functions.invoke("resolve-google-place", {
+          body: {
+            url: business.google_review_link,
+            businessId: business.id,
+          },
         });
-        if (data?.reviewUrl) reviewUrl = data.reviewUrl;
+
+        if (error) throw error;
+
+        if (data?.reviewUrl) {
+          resolvedReviewUrlRef.current = data.reviewUrl;
+          return data.reviewUrl;
+        }
       } catch (e) {
-        console.error("Could not resolve review URL", e);
+        console.error("resolve-google-place failed:", e);
       }
     }
 
-    if (!reviewUrl) {
-      toast({
-        title: "No Google review link configured",
-        description: "Please contact the business owner.",
-        variant: "destructive",
-      });
-      return;
+    // 5. Nothing worked
+    return null;
+  };
+
+  const handlePostOnGoogle = async () => {
+    setIsPosting(true);
+    try {
+      const reviewUrl = await getReviewUrl();
+
+      if (!reviewUrl) {
+        toast({
+          title: "No Google review link configured",
+          description: "Please contact the business owner.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update status in DB
+      await supabase
+        .from("generated_reviews")
+        .update({ status: "clicked" })
+        .eq("business_id", business.id)
+        .eq("status", "copied");
+
+      // ✅ Open the write-review form directly
+      window.open(reviewUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setIsPosting(false);
     }
-
-    await supabase
-      .from("generated_reviews")
-      .update({ status: "clicked" })
-      .eq("business_id", business.id)
-      .eq("status", "copied");
-
-    window.open(reviewUrl, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -185,17 +234,6 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
                   </button>
                 ))}
               </div>
-              {rating > 0 && (
-                <p className="text-sm text-gray-500">
-                  {rating === 5
-                    ? "Excellent! 🎉"
-                    : rating === 4
-                    ? "Great! 😊"
-                    : rating === 3
-                    ? "Good 👍"
-                    : "We'll improve 🙏"}
-                </p>
-              )}
             </CardContent>
           </Card>
         )}
@@ -207,7 +245,7 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
                 What did you enjoy?
               </h2>
               <p className="text-gray-500 text-sm text-center mb-6">
-                Select all that apply — we'll write the review for you!
+                Select all that apply
               </p>
               <TagSelector
                 category={business.category}
@@ -253,10 +291,20 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
               </Button>
               <Button
                 onClick={handlePostOnGoogle}
+                disabled={isPosting}
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >
-                <ExternalLink size={16} className="mr-2" />
-                Post on Google
+                {isPosting ? (
+                  <>
+                    <Loader2 size={16} className="mr-2 animate-spin" />
+                    Opening Google...
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink size={16} className="mr-2" />
+                    Post on Google
+                  </>
+                )}
               </Button>
               <p className="text-xs text-gray-400 text-center mt-4">
                 💡 Tip: Paste the copied review after Google opens
@@ -264,6 +312,10 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
             </CardContent>
           </Card>
         )}
+
+        <p className="text-center text-xs text-gray-400 mt-6">
+          Powered by M&M Fintech
+        </p>
       </div>
     </div>
   );
