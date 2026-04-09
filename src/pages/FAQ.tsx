@@ -14,7 +14,7 @@ const faqs = [
   {
     question: "Will this work for my type of business?",
     answer:
-      "Boost Reviews works for any business listed on Google Maps — restaurants, salons, clinics, retail shops, service providers, and more. As long as you have a Google Business Profile, you're good to go.",
+      "REVUZA works for any business listed on Google Maps — restaurants, salons, clinics, retail shops, service providers, and more. As long as you have a Google Business Profile, you're good to go.",
   },
   {
     question: "Is there a limit to how many review links I can send?",
@@ -27,7 +27,7 @@ const faqs = [
       "Yes — you can add your business name, logo, and a personalised message so customers feel they're hearing directly from you, not a third-party tool.",
   },
   {
-    question: "Does Boost Reviews remove negative reviews?",
+    question: "Does REVUZA remove negative reviews?",
     answer:
       "We cannot remove reviews from Google — no tool can legitimately do that. However, our smart funnel gently identifies unhappy customers before they reach Google and routes their feedback to you privately, helping you resolve issues offline.",
   },
