@@ -1,9 +1,45 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { QrCode, Sparkles, BarChart3, ArrowRight, CheckCircle2 } from "lucide-react";
+import { QrCode, Sparkles, BarChart3, ArrowRight } from "lucide-react";
 import revuzaLogo from "@/assets/revuza-logo.jpeg";
 import { motion } from "framer-motion";
 import PricingCards from "@/components/PricingCards";
+
+const faqs = [
+  {
+    question: "How does REVUZA work?",
+    answer: "REVUZA makes it effortless to collect 5-star Google reviews from your happy customers. Simply share your unique review link — we guide customers step-by-step to leave a review on your Google Business Profile.",
+  },
+  {
+    question: "Do customers need a Google account to leave a review?",
+    answer: "Yes, Google requires reviewers to be signed in to a Google account. However, most customers already have one through Gmail, YouTube, or Android — so this is rarely a barrier.",
+  },
+  {
+    question: "Will this work for my type of business?",
+    answer: "REVUZA works for any business listed on Google Maps — restaurants, salons, clinics, retail shops, service providers, and more. As long as you have a Google Business Profile, you're good to go.",
+  },
+  {
+    question: "Is there a limit to how many review links I can send?",
+    answer: "No limits! Send your review link via WhatsApp, SMS, email, QR code, or any other channel. The more you share, the more reviews you collect.",
+  },
+  {
+    question: "Can I customise the review request page?",
+    answer: "Yes — you can add your business name, logo, and a personalised message so customers feel they're hearing directly from you, not a third-party tool.",
+  },
+  {
+    question: "Does REVUZA remove negative reviews?",
+    answer: "We cannot remove reviews from Google — no tool can legitimately do that. However, our smart funnel gently identifies unhappy customers before they reach Google and routes their feedback to you privately, helping you resolve issues offline.",
+  },
+  {
+    question: "How quickly will I see new reviews on Google?",
+    answer: "Google typically publishes reviews within a few minutes to a few hours. Occasionally, reviews may be held for moderation and can take up to 24 hours to appear.",
+  },
+  {
+    question: "Is my data secure?",
+    answer: "Absolutely. We do not store sensitive customer data beyond what is needed to operate the service. All data is encrypted in transit and at rest, and we never sell your information to third parties.",
+  },
+];
 
 const features = [
   {
@@ -33,6 +69,9 @@ const fadeUp = {
 };
 
 const Index = () => {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const toggle = (i: number) => setOpenIndex(openIndex === i ? null : i);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Nav */}
@@ -42,9 +81,9 @@ const Index = () => {
             <img src={revuzaLogo} alt="Revuza" className="h-8 w-auto" />
           </Link>
           <div className="flex items-center gap-3">
-            <Link to="/faq">
+            <a href="#faq">
               <Button variant="ghost" size="sm">FAQ</Button>
-            </Link>
+            </a>
             <Link to="/login">
               <Button variant="ghost" size="sm">Log in</Button>
             </Link>
@@ -167,12 +206,76 @@ const Index = () => {
         </div>
       </section>
 
+      {/* FAQ */}
+      <section className="py-20 px-4" id="faq">
+        <div className="container mx-auto max-w-3xl">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-heading font-bold text-foreground mb-4">
+              Frequently Asked Questions
+            </h2>
+            <p className="text-muted-foreground text-lg">
+              Everything you need to know about REVUZA.
+            </p>
+          </div>
+          <div className="space-y-3">
+            {faqs.map((faq, i) => {
+              const isOpen = openIndex === i;
+              return (
+                <motion.div
+                  key={i}
+                  custom={i}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={{ once: true }}
+                  variants={fadeUp}
+                  className="rounded-xl border border-border overflow-hidden"
+                  style={{
+                    background: isOpen ? "hsl(var(--secondary))" : "hsl(var(--card))",
+                    borderColor: isOpen ? "hsl(var(--primary) / 0.4)" : undefined,
+                    transition: "background 0.2s, border-color 0.2s",
+                  }}
+                >
+                  <button
+                    onClick={() => toggle(i)}
+                    className="w-full flex justify-between items-center px-6 py-5 text-left gap-4 cursor-pointer bg-transparent border-none"
+                  >
+                    <span className="font-heading font-semibold text-foreground text-base leading-snug">
+                      {faq.question}
+                    </span>
+                    <span
+                      className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center bg-primary/10 transition-transform duration-200"
+                      style={{ transform: isOpen ? "rotate(45deg)" : "rotate(0deg)" }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <line x1="7" y1="1" x2="7" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-primary" />
+                        <line x1="1" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-primary" />
+                      </svg>
+                    </span>
+                  </button>
+                  <div
+                    style={{
+                      maxHeight: isOpen ? "300px" : "0",
+                      overflow: "hidden",
+                      transition: "max-height 0.3s ease",
+                    }}
+                  >
+                    <p className="px-6 pb-5 text-muted-foreground text-sm leading-relaxed">
+                      {faq.answer}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="py-12 px-4 border-t border-border">
         <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <img src={revuzaLogo} alt="Revuza" className="h-6 w-auto" />
           <div className="flex items-center gap-6">
-            <Link to="/faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">FAQ</Link>
+            <a href="#faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">FAQ</a>
             <p className="text-sm text-muted-foreground">© 2026 M&M Fintech. All rights reserved.</p>
           </div>
         </div>
