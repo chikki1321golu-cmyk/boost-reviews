@@ -1,15 +1,17 @@
 import { useRazorpay, PlanId } from "@/hooks/useRazorpay";
 import { useAuth } from "@/contexts/AuthContext";
 import { Check } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const PLANS = [
   {
     id: "starter" as PlanId,
     name: "Starter",
     price: 499,
-    period: "/month",
+    period: "/28 days",
     description: "Perfect for small businesses",
     color: "border-gray-200",
+    hasTrial: true,
     features: [
       "1 business",
       "100 AI reviews/month",
@@ -23,9 +25,10 @@ const PLANS = [
     id: "growth" as PlanId,
     name: "Growth",
     price: 1499,
-    period: "/month",
+    period: "/28 days",
     description: "For growing businesses",
     color: "border-green-600",
+    hasTrial: false,
     features: [
       "3 businesses",
       "Unlimited AI reviews",
@@ -40,9 +43,10 @@ const PLANS = [
     id: "agency" as PlanId,
     name: "Agency",
     price: 3999,
-    period: "/month",
+    period: "/28 days",
     description: "For agencies & enterprises",
     color: "border-gray-200",
+    hasTrial: false,
     features: [
       "20 businesses",
       "Unlimited AI reviews",
@@ -57,11 +61,15 @@ const PLANS = [
 
 export default function SubscriptionPlans() {
   const { initiatePayment, loading } = useRazorpay();
-  const { user } = useAuth(); // provides user.email, user.user_metadata?.full_name
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   const handleUpgrade = (planId: PlanId) => {
-    if (!user) return;
-    initiatePayment(planId, user.email!, user.user_metadata?.full_name);
+    if (!user) {
+      navigate("/signup");
+      return;
+    }
+    initiatePayment(planId, user.id, user.email!, user.user_metadata?.full_name);
   };
 
   return (
@@ -69,7 +77,7 @@ export default function SubscriptionPlans() {
       <div className="text-center mb-10">
         <h1 className="text-3xl font-bold text-foreground mb-2">Choose your plan</h1>
         <p className="text-muted-foreground">
-          Upgrade to unlock more businesses and unlimited AI reviews
+          All plans renew every 28 days · Cancel anytime
         </p>
       </div>
 
@@ -87,7 +95,7 @@ export default function SubscriptionPlans() {
               </div>
             )}
 
-            <div className="mb-6">
+            <div className="mb-4">
               <h2 className="text-xl font-bold text-foreground">{plan.name}</h2>
               <p className="text-muted-foreground text-sm mt-1">{plan.description}</p>
               <div className="mt-3 flex items-baseline gap-1">
@@ -97,6 +105,11 @@ export default function SubscriptionPlans() {
                 </span>
                 <span className="text-muted-foreground text-sm">{plan.period}</span>
               </div>
+              {plan.hasTrial ? (
+                <p className="text-xs text-primary font-semibold mt-1">✨ 7-day free trial included</p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">Renews every 28 days</p>
+              )}
             </div>
 
             <ul className="space-y-3 flex-1 mb-6">
@@ -118,7 +131,7 @@ export default function SubscriptionPlans() {
                 }
                 disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              {loading ? "Processing..." : `Upgrade to ${plan.name}`}
+              {loading ? "Processing..." : !user ? "Sign up to buy" : `Upgrade to ${plan.name}`}
             </button>
           </div>
         ))}
