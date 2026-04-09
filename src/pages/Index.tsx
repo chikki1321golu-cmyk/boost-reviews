@@ -78,7 +78,14 @@ const Index = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
         <div className="container mx-auto flex items-center justify-between h-16 px-4">
           <Link to="/" className="flex items-center gap-2">
-            <img src={revuzaLogo} alt="Revuza" className="h-8 w-auto" />
+            <div className="h-8 w-8 overflow-hidden flex-shrink-0">
+              <img
+                src={revuzaLogo}
+                alt="Revuza icon"
+                style={{ height: "32px", width: "auto", maxWidth: "none" }}
+              />
+            </div>
+            <span className="font-heading font-bold text-lg text-foreground tracking-tight">Revuza</span>
           </Link>
           <div className="flex items-center gap-3">
             <a href="#faq">
@@ -273,7 +280,16 @@ const Index = () => {
       {/* Footer */}
       <footer className="py-12 px-4 border-t border-border">
         <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <img src={revuzaLogo} alt="Revuza" className="h-6 w-auto" />
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-6 overflow-hidden flex-shrink-0">
+              <img
+                src={revuzaLogo}
+                alt="Revuza icon"
+                style={{ height: "24px", width: "auto", maxWidth: "none" }}
+              />
+            </div>
+            <span className="font-heading font-bold text-sm text-foreground tracking-tight">Revuza</span>
+          </div>
           <div className="flex items-center gap-6">
             <a href="#faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">FAQ</a>
             <p className="text-sm text-muted-foreground">© 2026 M&M Fintech. All rights reserved.</p>
