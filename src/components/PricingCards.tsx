@@ -13,36 +13,40 @@ const plans: Array<{
   bestFor: string | null;
   cta: string;
   popular: boolean;
+  hasTrial: boolean;
 }> = [
   {
     id: "starter",
     name: "Starter",
     price: "₹499",
-    period: "/month",
+    period: "/28 days",
     features: ["1 business", "100 AI reviews/month", "Basic analytics", "QR code (small branding footer)"],
     bestFor: "Best for: small shops, salons, cafes",
     cta: "Start Starter",
     popular: false,
+    hasTrial: true,
   },
   {
     id: "growth",
     name: "Growth",
     price: "₹1,499",
-    period: "/month",
+    period: "/28 days",
     features: ["3 businesses", "Unlimited AI reviews", "Advanced analytics", "Custom branding (small logo)", "Priority support"],
     bestFor: null,
     cta: "Start Growth",
     popular: true,
+    hasTrial: false,
   },
   {
     id: "agency",
     name: "Agency",
     price: "₹3,999",
-    period: "/month",
+    period: "/28 days",
     features: ["20 businesses", "White-label dashboard", "Remove \"Powered by\"", "Bulk QR generation", "Team access"],
     bestFor: null,
     cta: "Contact Sales",
     popular: false,
+    hasTrial: false,
   },
 ];
 
@@ -56,7 +60,6 @@ const PricingCards = () => {
       navigate("/signup");
       return;
     }
-
     initiatePayment(planId, user.id, user.email, user.user_metadata?.full_name);
   };
 
@@ -81,7 +84,14 @@ const PricingCards = () => {
             <span className="text-3xl font-heading font-bold text-card-foreground">{plan.price}</span>
             <span className="text-muted-foreground text-sm">{plan.period}</span>
           </div>
-          <p className="text-xs text-primary font-medium mb-2">Includes 7-day free trial</p>
+
+          {/* Trial badge — only on Starter */}
+          {plan.hasTrial ? (
+            <p className="text-xs text-primary font-semibold mb-2">✨ Includes 7-day free trial</p>
+          ) : (
+            <p className="text-xs text-muted-foreground mb-2">Renews every 28 days</p>
+          )}
+
           {plan.bestFor && (
             <p className="text-xs text-muted-foreground italic mb-3">{plan.bestFor}</p>
           )}
@@ -99,8 +109,15 @@ const PricingCards = () => {
             disabled={loading}
             onClick={() => handlePlanClick(plan.id)}
           >
-            {loading ? "Processing..." : plan.cta}
+            {loading ? "Processing..." : !user ? "Sign up to buy" : plan.cta}
           </Button>
+
+          {/* Redirect hint for non-logged in users */}
+          {!user && (
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              You'll be asked to create an account first
+            </p>
+          )}
         </div>
       ))}
     </div>
