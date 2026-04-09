@@ -42,6 +42,9 @@ const Index = () => {
             <img src={revuzaLogo} alt="Revuza" className="h-8 w-auto" />
           </Link>
           <div className="flex items-center gap-3">
+            <Link to="/faq">
+              <Button variant="ghost" size="sm">FAQ</Button>
+            </Link>
             <Link to="/login">
               <Button variant="ghost" size="sm">Log in</Button>
             </Link>
@@ -168,7 +171,10 @@ const Index = () => {
       <footer className="py-12 px-4 border-t border-border">
         <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <img src={revuzaLogo} alt="Revuza" className="h-6 w-auto" />
-          <p className="text-sm text-muted-foreground">© 2026 M&M Fintech. All rights reserved.</p>
+          <div className="flex items-center gap-6">
+            <Link to="/faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">FAQ</Link>
+            <p className="text-sm text-muted-foreground">© 2026 M&M Fintech. All rights reserved.</p>
+          </div>
         </div>
       </footer>
     </div>
