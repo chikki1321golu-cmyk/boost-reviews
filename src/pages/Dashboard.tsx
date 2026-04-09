@@ -19,15 +19,15 @@ const Dashboard = () => {
 
       const [scansRes, reviewsRes] = await Promise.all([
         supabase.from("scans").select("id", { count: "exact", head: true }).in("business_id", bizIds),
-        supabase.from("generated_reviews").select("id, copied, google_clicked").in("business_id", bizIds),
+        supabase.from("generated_reviews").select("id, status").in("business_id", bizIds),
       ]);
 
       const reviews = reviewsRes.data || [];
       return {
         scans: scansRes.count || 0,
         reviews: reviews.length,
-        copies: reviews.filter((r) => r.copied).length,
-        clicks: reviews.filter((r) => r.google_clicked).length,
+        copies: reviews.filter((r) => r.status === "copied").length,
+        clicks: reviews.filter((r) => r.status === "clicked").length,
       };
     },
     enabled: !!user,
