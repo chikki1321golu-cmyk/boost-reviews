@@ -14,6 +14,7 @@ import DashboardQRCode from "./pages/DashboardQRCode";
 import DashboardSubscription from "./pages/DashboardSubscription";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import FAQ from "./pages/FAQ";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/dashboard/qrcode" element={<ProtectedRoute><DashboardQRCode /></ProtectedRoute>} />
             <Route path="/dashboard/subscription" element={<ProtectedRoute><DashboardSubscription /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
+            <Route path="/faq" element={<FAQ />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>
