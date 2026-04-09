@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { QrCode, Sparkles, BarChart3, ArrowRight } from "lucide-react";
-import revuzaLogo from "@/assets/revuza-logo.png";
+import revuzaLogo from "@/assets/revuza-logo2.png";
 import { motion } from "framer-motion";
 import PricingCards from "@/components/PricingCards";
 
