@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import revuzaLogo from "@/assets/revuza-logo.jpeg";
+import revuzaLogo from "@/assets/revuza-logo.png";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -18,7 +18,8 @@ const Signup = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -26,13 +27,32 @@ const Signup = () => {
         emailRedirectTo: window.location.origin,
       },
     });
-    setLoading(false);
+
     if (error) {
+      setLoading(false);
       toast.error(error.message);
-    } else {
-      toast.success("Account created! Check your email to confirm.");
-      navigate("/dashboard");
+      return;
     }
+
+    // Create a 7-day trial subscription for starter plan on signup
+    if (data.user) {
+      const trialEnd = new Date();
+      trialEnd.setDate(trialEnd.getDate() + 7);
+
+      await supabase.from("subscriptions").insert({
+        user_id: data.user.id,
+        plan: "starter",
+        status: "active",
+        is_trial: true,
+        trial_end: trialEnd.toISOString(),
+        current_period_start: new Date().toISOString(),
+        current_period_end: trialEnd.toISOString(),
+      });
+    }
+
+    setLoading(false);
+    toast.success("Account created! Your 7-day free trial has started.");
+    navigate("/dashboard");
   };
 
   return (
@@ -40,11 +60,19 @@ const Signup = () => {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <img src={revuzaLogo} alt="Revuza" className="h-10 w-auto" />
+            <img src={revuzaLogo} alt="Revuza" className="h-10 w-10 object-contain" />
+            <span className="font-heading font-bold text-xl text-foreground">Revuza</span>
           </Link>
           <h1 className="font-heading font-bold text-xl text-foreground">Create your account</h1>
-          <p className="text-sm text-muted-foreground mt-1">Start collecting reviews in minutes</p>
+          <p className="text-sm text-muted-foreground mt-1">Start your 7-day free trial today</p>
         </div>
+
+        {/* Trial badge */}
+        <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 mb-4 text-center">
+          <p className="text-sm text-primary font-semibold">🎉 7-day free trial included</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Trial starts on signup · Starter plan · No credit card required</p>
+        </div>
+
         <div className="bg-card rounded-2xl border border-border p-6 shadow-card">
           <form onSubmit={handleSignup} className="space-y-4">
             <div>
@@ -61,7 +89,7 @@ const Signup = () => {
             </div>
             <Button variant="hero" className="w-full" type="submit" disabled={loading}>
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              Create Account
+              Start Free Trial
             </Button>
           </form>
         </div>
