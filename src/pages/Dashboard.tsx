@@ -12,29 +12,25 @@ const Dashboard = () => {
   const { data: stats, isLoading } = useQuery({
     queryKey: ["dashboard-stats", user?.id],
     queryFn: async () => {
-      const { data: businesses } = await supabase
-        .from("businesses")
-        .select("id")
-        .eq("user_id", user!.id);
-
-      const bizIds = businesses?.map(b => b.id) || [];
+      // Get user's business IDs
+      const { data: businesses } = await supabase.from("businesses").select("id").eq("user_id", user!.id);
+      const bizIds = businesses?.map((b) => b.id) || [];
       if (bizIds.length === 0) return { scans: 0, reviews: 0, copies: 0, clicks: 0 };
 
       const [scansRes, reviewsRes] = await Promise.all([
         supabase.from("scans").select("id", { count: "exact", head: true }).in("business_id", bizIds),
-        supabase.from("generated_reviews").select("id, status").in("business_id", bizIds),
+        supabase.from("generated_reviews").select("id, copied, google_clicked").in("business_id", bizIds),
       ]);
 
       const reviews = reviewsRes.data || [];
       return {
         scans: scansRes.count || 0,
         reviews: reviews.length,
-        copies: reviews.filter(r => r.status === "copied").length,
-        clicks: reviews.filter(r => r.status === "clicked").length,
+        copies: reviews.filter((r) => r.copied).length,
+        clicks: reviews.filter((r) => r.google_clicked).length,
       };
     },
     enabled: !!user,
-    refetchInterval: 30000, // refresh every 30s
   });
 
   return (
@@ -42,9 +38,7 @@ const Dashboard = () => {
       <div className="max-w-6xl mx-auto">
         <h1 className="text-2xl font-heading font-bold text-foreground mb-6">Dashboard</h1>
         {isLoading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
-          </div>
+          <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
         ) : (
           <>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
