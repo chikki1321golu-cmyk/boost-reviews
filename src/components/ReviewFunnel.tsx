@@ -1,3 +1,28 @@
+import { useParams } from "react-router-dom";
+
+// ADD THESE at the top of the component, before any other state:
+const { slug } = useParams<{ slug: string }>();
+const [business, setBusiness] = useState<Business | null>(null);
+const [pageLoading, setPageLoading] = useState(true);
+
+useEffect(() => {
+  if (!slug) { setPageLoading(false); return; }
+  supabase
+    .from("businesses")
+    .select("id, name, slug, category, google_review_link, google_place_id")
+    .eq("slug", slug)
+    .single()
+    .then(({ data }) => {
+      if (data) {
+        setBusiness(data);
+        supabase.from("scans").insert({ business_id: data.id });
+      }
+      setPageLoading(false);
+    });
+}, [slug]);
+
+if (pageLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>;
+if (!business) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Business not found.</p></div>;
 import { useState, useRef } from "react";
 import { Star, Copy, ExternalLink, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
