@@ -1,30 +1,6 @@
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
-
-// ADD THESE at the top of the component, before any other state:
-const { slug } = useParams<{ slug: string }>();
-const [business, setBusiness] = useState<Business | null>(null);
-const [pageLoading, setPageLoading] = useState(true);
-
-useEffect(() => {
-  if (!slug) { setPageLoading(false); return; }
-  supabase
-    .from("businesses")
-    .select("id, name, slug, category, google_review_link, google_place_id")
-    .eq("slug", slug)
-    .single()
-    .then(({ data }) => {
-      if (data) {
-        setBusiness(data);
-        supabase.from("scans").insert({ business_id: data.id });
-      }
-      setPageLoading(false);
-    });
-}, [slug]);
-
-if (pageLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>;
-if (!business) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-500">Business not found.</p></div>;
-import { useState, useRef } from "react";
-import { Star, Copy, ExternalLink, CheckCircle, Loader2 } from "lucide-react";
+import { Star, Copy, ExternalLink, CheckCircle, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
@@ -39,14 +15,10 @@ interface Business {
   google_place_id: string | null;
 }
 
-interface ReviewFunnelProps {
-  business: Business;
-}
-
 const STEPS = { RATING: "rating", GENERATE: "generate", POST: "post" } as const;
 type Step = (typeof STEPS)[keyof typeof STEPS];
 
-// ── Extract Place ID from any Google URL (client-side, no API key needed) ──
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function extractPlaceId(url: string): string | null {
   try {
     const u = new URL(url);
@@ -68,14 +40,15 @@ function extractCid(url: string): string | null {
   return null;
 }
 
-// Expand share.google / goo.gl links via hidden iframe (browser-side, free)
 async function expandViaIframe(url: string): Promise<string | null> {
   return new Promise((resolve) => {
     const iframe = document.createElement("iframe");
     iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;visibility:hidden;";
     document.body.appendChild(iframe);
     let done = false;
-    const cleanup = () => { if (!done) { done = true; try { document.body.removeChild(iframe); } catch { /* ignore */ } } };
+    const cleanup = () => {
+      if (!done) { done = true; try { document.body.removeChild(iframe); } catch { /* ignore */ } }
+    };
     const timer = setInterval(() => {
       try {
         const loc = iframe.contentWindow?.location.href;
@@ -89,7 +62,7 @@ async function expandViaIframe(url: string): Promise<string | null> {
   });
 }
 
-async function resolveReviewUrl(rawUrl: string): Promise<{ url: string | null; placeId: string | null }> {
+async function resolveGoogleUrl(rawUrl: string): Promise<{ url: string | null; placeId: string | null }> {
   const u = rawUrl.trim();
   if (u.includes("writereview")) return { url: u, placeId: extractPlaceId(u) };
   const pid = extractPlaceId(u);
@@ -109,211 +82,7 @@ async function resolveReviewUrl(rawUrl: string): Promise<{ url: string | null; p
   return { url: null, placeId: null };
 }
 
-export default function ReviewFunnel({ business }: ReviewFunnelProps) {
-  const [step, setStep] = useState<Step>(STEPS.RATING);
-  const [rating, setRating] = useState(0);
-  const [hoveredRating, setHoveredRating] = useState(0);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [reviews, setReviews] = useState<string[]>([]);
-  const [selectedReview, setSelectedReview] = useState(0);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isPosting, setIsPosting] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const resolvedUrlRef = useRef<string | null>(null);
-
-  const handleRatingSelect = (value: number) => {
-    setRating(value);
-    if (value >= 4) setTimeout(() => setStep(STEPS.GENERATE), 300);
-    else toast({ title: "Thank you for your feedback", description: "We'll use this to improve our service." });
-  };
-
-  const toggleTag = (tag: string) =>
-    setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
-
-  const handleGenerateReview = async () => {
-    if (selectedTags.length === 0) {
-      toast({ title: "Select at least one option", description: "Please choose what you enjoyed.", variant: "destructive" });
-      return;
-    }
-    setIsGenerating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("generate-reviews", {
-        body: { businessName: business.name, businessId: business.id, category: business.category, rating, tags: selectedTags },
-      });
-      if (error) throw error;
-      const reviewList: string[] = Array.isArray(data?.reviews) ? data.reviews : data?.review ? [data.review] : [];
-      if (reviewList.length === 0) throw new Error("No reviews returned");
-      setReviews(reviewList);
-      setSelectedReview(0);
-      setStep(STEPS.POST);
-    } catch (err) {
-      console.error("Generate error:", err);
-      toast({ title: "Error generating review", description: "Please try again.", variant: "destructive" });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleCopy = async () => {
-    const text = reviews[selectedReview] || "";
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
-      await supabase.from("generated_reviews")
-        .update({ status: "copied" })
-        .eq("business_id", business.id)
-        .eq("review_text", text)
-        .eq("status", "generated");
-    } catch {
-      toast({ title: "Failed to copy", variant: "destructive" });
-    }
-  };
-
-  const getReviewUrl = async (): Promise<string | null> => {
-    if (resolvedUrlRef.current) return resolvedUrlRef.current;
-    if (business.google_place_id) {
-      const u = `https://search.google.com/local/writereview?placeid=${business.google_place_id}`;
-      resolvedUrlRef.current = u; return u;
-    }
-    if (business.google_review_link?.includes("writereview")) {
-      resolvedUrlRef.current = business.google_review_link;
-      return business.google_review_link;
-    }
-    if (business.google_review_link) {
-      const { url: clientUrl, placeId } = await resolveReviewUrl(business.google_review_link);
-      if (clientUrl) {
-        resolvedUrlRef.current = clientUrl;
-        // Save resolved URL to DB in background
-        supabase.functions.invoke("resolve-google-place", {
-          body: { url: business.google_review_link, businessId: business.id, businessName: business.name, placeId },
-        });
-        return clientUrl;
-      }
-      // Last resort: edge function scrape
-      try {
-        const { data } = await supabase.functions.invoke("resolve-google-place", {
-          body: { url: business.google_review_link, businessId: business.id, businessName: business.name },
-        });
-        if (data?.reviewUrl?.includes("writereview")) {
-          resolvedUrlRef.current = data.reviewUrl;
-          return data.reviewUrl;
-        }
-      } catch (e) { console.error("Edge resolve failed:", e); }
-    }
-    return null;
-  };
-
-  const handlePostOnGoogle = async () => {
-    setIsPosting(true);
-    try {
-      const reviewUrl = await getReviewUrl();
-      if (!reviewUrl) {
-        toast({ title: "Could not open Google Reviews", description: "Please ask the business owner to update their Google review link in Settings.", variant: "destructive" });
-        return;
-      }
-      const text = reviews[selectedReview] || "";
-      await supabase.from("generated_reviews")
-        .update({ status: "clicked" })
-        .eq("business_id", business.id)
-        .eq("review_text", text);
-      window.open(reviewUrl, "_blank", "noopener,noreferrer");
-    } finally {
-      setIsPosting(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">{business.name}</h1>
-          <p className="text-gray-500 mt-1">Share your experience</p>
-        </div>
-
-        {step === STEPS.RATING && (
-          <Card>
-            <CardContent className="pt-8 pb-8 text-center">
-              <h2 className="text-xl font-semibold mb-2">How was your visit?</h2>
-              <p className="text-gray-500 mb-6 text-sm">Tap a star to rate</p>
-              <div className="flex justify-center gap-3 mb-4">
-                {[1,2,3,4,5].map(star => (
-                  <button key={star} onClick={() => handleRatingSelect(star)}
-                    onMouseEnter={() => setHoveredRating(star)} onMouseLeave={() => setHoveredRating(0)}
-                    className="transition-transform hover:scale-110">
-                    <Star size={44} className={star <= (hoveredRating || rating) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"} />
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {step === STEPS.GENERATE && (
-          <Card>
-            <CardContent className="pt-8 pb-8">
-              <h2 className="text-xl font-semibold text-center mb-2">What did you enjoy?</h2>
-              <p className="text-gray-500 text-sm text-center mb-6">Select all that apply</p>
-              <TagSelector category={business.category} selected={selectedTags} onToggle={toggleTag} />
-              <Button onClick={handleGenerateReview} disabled={isGenerating || selectedTags.length === 0}
-                className="w-full mt-6 bg-green-600 hover:bg-green-700">
-                {isGenerating ? "Generating..." : "Generate My Review ✨"}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {step === STEPS.POST && reviews.length > 0 && (
-          <Card>
-            <CardContent className="pt-8 pb-8">
-              <div className="text-center mb-4">
-                <CheckCircle className="text-green-500 mx-auto mb-2" size={40} />
-                <h2 className="text-xl font-semibold">Your review is ready!</h2>
-                <p className="text-gray-500 text-sm mt-1">Copy it, then click "Post on Google"</p>
-              </div>
-
-              {/* Review selector if multiple */}
-              {reviews.length > 1 && (
-                <div className="flex gap-2 justify-center mb-3">
-                  {reviews.map((_, i) => (
-                    <button key={i} onClick={() => setSelectedReview(i)}
-                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
-                        i === selectedReview ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-600 border-gray-300"
-                      }`}>
-                      Option {i + 1}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="bg-gray-50 rounded-lg p-4 mb-4 text-sm text-gray-700 leading-relaxed min-h-[100px]">
-                {reviews[selectedReview]}
-              </div>
-
-              <Button variant="outline" onClick={handleCopy} className="w-full mb-3">
-                {copied ? <><CheckCircle size={16} className="mr-2 text-green-500" />Copied!</>
-                         : <><Copy size={16} className="mr-2" />Copy Review</>}
-              </Button>
-
-              <Button onClick={handlePostOnGoogle} disabled={isPosting} className="w-full bg-blue-600 hover:bg-blue-700">
-                {isPosting ? <><Loader2 size={16} className="mr-2 animate-spin" />Opening Google...</>
-                           : <><ExternalLink size={16} className="mr-2" />Post on Google</>}
-              </Button>
-
-              <p className="text-xs text-gray-400 text-center mt-4">
-                💡 Tip: Paste the copied review after Google opens
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        <p className="text-center text-xs text-gray-400 mt-6">Powered by M&M Fintech</p>
-      </div>
-    </div>
-  );
-}
-
-// ── Tag Selector ──────────────────────────────────────────────────────────────
+// ── BUSINESS TAGS ─────────────────────────────────────────────────────────────
 const BUSINESS_TAGS: Record<string, string[]> = {
   restaurant: ["Food Quality","Taste","Portion Size","Service","Ambience","Value for Money","Cleanliness","Speed","Staff Behaviour"],
   dhaba: ["Taste","Authentic Flavour","Quantity","Value for Money","Cleanliness","Service Speed","Seating"],
@@ -388,17 +157,272 @@ function getTagsForBusiness(category: string | null): string[] {
   return match ? BUSINESS_TAGS[match] : BUSINESS_TAGS.default;
 }
 
-function TagSelector({ category, selected, onToggle }: { category: string | null; selected: string[]; onToggle: (tag: string) => void }) {
+// ── TAG SELECTOR ──────────────────────────────────────────────────────────────
+function TagSelector({ category, selected, onToggle }: {
+  category: string | null;
+  selected: string[];
+  onToggle: (tag: string) => void;
+}) {
   return (
     <div className="flex flex-wrap gap-2 justify-center">
       {getTagsForBusiness(category).map(tag => (
         <button key={tag} onClick={() => onToggle(tag)}
           className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
-            selected.includes(tag) ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-700 border-gray-300 hover:border-green-400"
+            selected.includes(tag)
+              ? "bg-green-600 text-white border-green-600"
+              : "bg-white text-gray-700 border-gray-300 hover:border-green-400"
           }`}>
           {tag}
         </button>
       ))}
+    </div>
+  );
+}
+
+// ── MAIN PAGE COMPONENT ───────────────────────────────────────────────────────
+const ReviewFunnelPage = () => {
+  // ── Slug lookup (THIS IS THE FIX - fetch business from DB using URL slug) ──
+  const { slug } = useParams<{ slug: string }>();
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    if (!slug) { setNotFound(true); setPageLoading(false); return; }
+    supabase
+      .from("businesses")
+      .select("id, name, slug, category, google_review_link, google_place_id")
+      .eq("slug", slug)
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data) { setNotFound(true); }
+        else {
+          setBusiness(data);
+          // Record scan — fire and forget, don't block UI
+          supabase.from("scans").insert({ business_id: data.id });
+        }
+        setPageLoading(false);
+      });
+  }, [slug]);
+
+  if (pageLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-green-600 mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound || !business) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center p-4">
+        <div className="text-center max-w-sm">
+          <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h1 className="text-xl font-semibold text-gray-800 mb-2">Page Not Found</h1>
+          <p className="text-gray-500 text-sm">This review link doesn't exist or has been removed.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <ReviewFunnel business={business} />;
+};
+
+export default ReviewFunnelPage;
+
+// ── FUNNEL COMPONENT ──────────────────────────────────────────────────────────
+function ReviewFunnel({ business }: { business: Business }) {
+  const [step, setStep] = useState<Step>(STEPS.RATING);
+  const [rating, setRating] = useState(0);
+  const [hoveredRating, setHoveredRating] = useState(0);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [reviews, setReviews] = useState<string[]>([]);
+  const [selectedReview, setSelectedReview] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const resolvedUrlRef = useRef<string | null>(null);
+
+  const handleRatingSelect = (value: number) => {
+    setRating(value);
+    if (value >= 4) setTimeout(() => setStep(STEPS.GENERATE), 300);
+    else toast({ title: "Thank you for your feedback", description: "We'll use this to improve our service." });
+  };
+
+  const toggleTag = (tag: string) =>
+    setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+
+  const handleGenerateReview = async () => {
+    if (selectedTags.length === 0) {
+      toast({ title: "Select at least one option", description: "Please choose what you enjoyed.", variant: "destructive" });
+      return;
+    }
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-reviews", {
+        body: { businessName: business.name, businessId: business.id, category: business.category, rating, tags: selectedTags },
+      });
+      if (error) throw error;
+      const list: string[] = Array.isArray(data?.reviews) ? data.reviews : data?.review ? [data.review] : [];
+      if (list.length === 0) throw new Error("No reviews returned");
+      setReviews(list);
+      setSelectedReview(0);
+      setStep(STEPS.POST);
+    } catch (err) {
+      console.error("Generate error:", err);
+      toast({ title: "Error generating review", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    const text = reviews[selectedReview] || "";
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+      await supabase.from("generated_reviews")
+        .update({ status: "copied" })
+        .eq("business_id", business.id)
+        .eq("review_text", text)
+        .eq("status", "generated");
+    } catch {
+      toast({ title: "Failed to copy", variant: "destructive" });
+    }
+  };
+
+  const getReviewUrl = async (): Promise<string | null> => {
+    if (resolvedUrlRef.current) return resolvedUrlRef.current;
+    if (business.google_place_id) {
+      const u = `https://search.google.com/local/writereview?placeid=${business.google_place_id}`;
+      resolvedUrlRef.current = u; return u;
+    }
+    if (business.google_review_link?.includes("writereview")) {
+      resolvedUrlRef.current = business.google_review_link;
+      return business.google_review_link;
+    }
+    if (business.google_review_link) {
+      const { url: clientUrl, placeId } = await resolveGoogleUrl(business.google_review_link);
+      if (clientUrl) {
+        resolvedUrlRef.current = clientUrl;
+        supabase.functions.invoke("resolve-google-place", {
+          body: { url: business.google_review_link, businessId: business.id, businessName: business.name, placeId },
+        });
+        return clientUrl;
+      }
+      try {
+        const { data } = await supabase.functions.invoke("resolve-google-place", {
+          body: { url: business.google_review_link, businessId: business.id, businessName: business.name },
+        });
+        if (data?.reviewUrl?.includes("writereview")) {
+          resolvedUrlRef.current = data.reviewUrl; return data.reviewUrl;
+        }
+      } catch (e) { console.error("Edge resolve failed:", e); }
+    }
+    return null;
+  };
+
+  const handlePostOnGoogle = async () => {
+    setIsPosting(true);
+    try {
+      const reviewUrl = await getReviewUrl();
+      if (!reviewUrl) {
+        toast({ title: "Could not open Google Reviews", description: "Please ask the business owner to update their Google review link in Settings.", variant: "destructive" });
+        return;
+      }
+      const text = reviews[selectedReview] || "";
+      await supabase.from("generated_reviews")
+        .update({ status: "clicked" })
+        .eq("business_id", business.id)
+        .eq("review_text", text);
+      window.open(reviewUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">{business.name}</h1>
+          <p className="text-gray-500 mt-1">Share your experience</p>
+        </div>
+
+        {step === STEPS.RATING && (
+          <Card>
+            <CardContent className="pt-8 pb-8 text-center">
+              <h2 className="text-xl font-semibold mb-2">How was your visit?</h2>
+              <p className="text-gray-500 mb-6 text-sm">Tap a star to rate</p>
+              <div className="flex justify-center gap-3 mb-4">
+                {[1,2,3,4,5].map(star => (
+                  <button key={star} onClick={() => handleRatingSelect(star)}
+                    onMouseEnter={() => setHoveredRating(star)} onMouseLeave={() => setHoveredRating(0)}
+                    className="transition-transform hover:scale-110">
+                    <Star size={44} className={star <= (hoveredRating || rating) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"} />
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === STEPS.GENERATE && (
+          <Card>
+            <CardContent className="pt-8 pb-8">
+              <h2 className="text-xl font-semibold text-center mb-2">What did you enjoy?</h2>
+              <p className="text-gray-500 text-sm text-center mb-6">Select all that apply</p>
+              <TagSelector category={business.category} selected={selectedTags} onToggle={toggleTag} />
+              <Button onClick={handleGenerateReview} disabled={isGenerating || selectedTags.length === 0}
+                className="w-full mt-6 bg-green-600 hover:bg-green-700">
+                {isGenerating ? "Generating..." : "Generate My Review ✨"}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === STEPS.POST && reviews.length > 0 && (
+          <Card>
+            <CardContent className="pt-8 pb-8">
+              <div className="text-center mb-4">
+                <CheckCircle className="text-green-500 mx-auto mb-2" size={40} />
+                <h2 className="text-xl font-semibold">Your review is ready!</h2>
+                <p className="text-gray-500 text-sm mt-1">Copy it, then click "Post on Google"</p>
+              </div>
+              {reviews.length > 1 && (
+                <div className="flex gap-2 justify-center mb-3">
+                  {reviews.map((_, i) => (
+                    <button key={i} onClick={() => setSelectedReview(i)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                        i === selectedReview ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-600 border-gray-300"
+                      }`}>
+                      Option {i + 1}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="bg-gray-50 rounded-lg p-4 mb-4 text-sm text-gray-700 leading-relaxed min-h-[100px]">
+                {reviews[selectedReview]}
+              </div>
+              <Button variant="outline" onClick={handleCopy} className="w-full mb-3">
+                {copied ? <><CheckCircle size={16} className="mr-2 text-green-500" />Copied!</>
+                         : <><Copy size={16} className="mr-2" />Copy Review</>}
+              </Button>
+              <Button onClick={handlePostOnGoogle} disabled={isPosting} className="w-full bg-blue-600 hover:bg-blue-700">
+                {isPosting ? <><Loader2 size={16} className="mr-2 animate-spin" />Opening Google...</>
+                           : <><ExternalLink size={16} className="mr-2" />Post on Google</>}
+              </Button>
+              <p className="text-xs text-gray-400 text-center mt-4">💡 Tip: Paste the copied review after Google opens</p>
+            </CardContent>
+          </Card>
+        )}
+
+        <p className="text-center text-xs text-gray-400 mt-6">Powered by M&M Fintech</p>
+      </div>
     </div>
   );
 }
