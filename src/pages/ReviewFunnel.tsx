@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { Star, Copy, ExternalLink, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,10 +13,6 @@ interface Business {
   category: string | null;
   google_review_link: string | null;
   google_place_id: string | null;
-}
-
-interface ReviewFunnelProps {
-  business: Business;
 }
 
 const STEPS = {
@@ -54,74 +51,15 @@ function extractCidFromUrl(url: string): string | null {
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Client-side resolution for share.google and other browser-expandable links.
-// Opens the URL in a hidden iframe, waits for it to resolve, then reads the
-// final URL from the iframe's contentWindow.location (same-origin only, but
-// Google Maps pages expose the URL via window.location before the JS loads).
-//
-// For share.google specifically, the browser follows the redirect to a full
-// Google Maps URL that contains the Place ID or CID — we can read that URL.
-// ---------------------------------------------------------------------------
-async function resolveViaIframe(url: string): Promise<string | null> {
-  return new Promise((resolve) => {
-    const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;visibility:hidden;";
-    document.body.appendChild(iframe);
-
-    let resolved = false;
-    const cleanup = () => {
-      if (!resolved) {
-        resolved = true;
-        try { document.body.removeChild(iframe); } catch { /* ignore */ }
-      }
-    };
-
-    // Poll the iframe location after it loads
-    const checkInterval = setInterval(() => {
-      try {
-        const iframeUrl = iframe.contentWindow?.location.href;
-        if (iframeUrl && iframeUrl !== "about:blank" && iframeUrl !== url) {
-          clearInterval(checkInterval);
-          clearTimeout(timeout);
-          cleanup();
-          resolve(iframeUrl);
-        }
-      } catch {
-        // Cross-origin block — we can't read the URL but the redirect happened
-        // Try to get it from the frame's src instead
-        clearInterval(checkInterval);
-        clearTimeout(timeout);
-        cleanup();
-        resolve(null);
-      }
-    }, 300);
-
-    // Timeout after 6s
-    const timeout = setTimeout(() => {
-      clearInterval(checkInterval);
-      cleanup();
-      resolve(null);
-    }, 6000);
-
-    iframe.src = url;
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Main client-side resolver — no API key, no billing needed
-// ---------------------------------------------------------------------------
 async function resolveGoogleReviewUrl(
   rawUrl: string
 ): Promise<{ reviewUrl: string | null; placeId: string | null }> {
   const url = rawUrl.trim();
 
-  // 1. Already a write-review URL
   if (url.includes("writereview")) {
     return { reviewUrl: url, placeId: extractPlaceIdFromUrl(url) };
   }
 
-  // 2. Direct Place ID in URL
   const directId = extractPlaceIdFromUrl(url);
   if (directId) {
     return {
@@ -130,7 +68,6 @@ async function resolveGoogleReviewUrl(
     };
   }
 
-  // 3. CID in URL
   const directCid = extractCidFromUrl(url);
   if (directCid) {
     return {
@@ -139,52 +76,27 @@ async function resolveGoogleReviewUrl(
     };
   }
 
-  // 4. Try iframe expansion for share.google, goo.gl, maps.app.goo.gl etc.
-  //    The browser follows the redirect and we can read the final URL
-  const isExpandable =
-    url.includes("share.google") ||
-    url.includes("goo.gl") ||
-    url.includes("maps.app.goo.gl") ||
-    url.includes("g.page");
-
-  if (isExpandable) {
-    const expandedUrl = await resolveViaIframe(url);
-    if (expandedUrl) {
-      const eid = extractPlaceIdFromUrl(expandedUrl);
-      if (eid) {
-        return {
-          placeId: eid,
-          reviewUrl: `https://search.google.com/local/writereview?placeid=${eid}`,
-        };
-      }
-      const ecid = extractCidFromUrl(expandedUrl);
-      if (ecid) {
-        return {
-          placeId: null,
-          reviewUrl: `https://search.google.com/local/writereview?cid=${ecid}`,
-        };
-      }
-    }
-  }
-
-  // 5. Nothing worked client-side — fall back to edge function
-  //    (which tries Google Maps scraping by business name)
-  return { reviewUrl: null, placeId: null };
+  return { reviewUrl: url, placeId: null };
 }
 
 // ---------------------------------------------------------------------------
-export default function ReviewFunnel({ business }: ReviewFunnelProps) {
+// Inner funnel component (receives resolved business)
+// ---------------------------------------------------------------------------
+function ReviewFunnelInner({ business }: { business: Business }) {
   const [step, setStep] = useState<Step>(STEPS.RATING);
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [generatedReview, setGeneratedReview] = useState("");
+  const [generatedReviews, setGeneratedReviews] = useState<string[]>([]);
+  const [selectedReviewIndex, setSelectedReviewIndex] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [copied, setCopied] = useState(false);
-
-  // Cache the resolved write-review URL for this whole session
+  // Track the inserted review ID so we can update copied/clicked flags
+  const reviewIdRef = useRef<string | null>(null);
   const resolvedUrlRef = useRef<string | null>(null);
+
+  const currentReview = generatedReviews[selectedReviewIndex] || "";
 
   const handleRatingSelect = (value: number) => {
     setRating(value);
@@ -206,129 +118,116 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
 
   const handleGenerateReview = async () => {
     if (selectedTags.length === 0) {
-      toast({
-        title: "Select at least one option",
-        description: "Please choose what you enjoyed before generating.",
-        variant: "destructive",
-      });
+      toast({ title: "Select at least one option", variant: "destructive" });
       return;
     }
+
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-reviews", {
         body: {
           businessName: business.name,
+          businessId: business.id,
           category: business.category,
           rating,
           tags: selectedTags,
         },
       });
       if (error) throw error;
-      const reviewText =
-        data?.review ||
-        (Array.isArray(data?.reviews) ? data.reviews[0] : null) ||
-        "";
-      setGeneratedReview(reviewText);
+
+      const reviews: string[] = data.reviews || (data.review ? [data.review] : []);
+      if (reviews.length === 0) throw new Error("No reviews generated");
+
+      setGeneratedReviews(reviews);
+      setSelectedReviewIndex(0);
+
+      // Insert the first review and save its ID for tracking
+      const { data: inserted } = await supabase
+        .from("generated_reviews")
+        .insert({
+          business_id: business.id,
+          rating,
+          tags: selectedTags,
+          review_text: reviews[0],
+          status: "generated",
+          copied: false,
+          google_clicked: false,
+        })
+        .select("id")
+        .single();
+
+      if (inserted?.id) reviewIdRef.current = inserted.id;
+
       setStep(STEPS.POST);
-      await supabase.from("generated_reviews").insert({
-        business_id: business.id,
-        review_text: reviewText,
-        rating,
-        status: "generated",
-      });
-    } catch (err) {
-      console.error("Error generating review:", err);
-      toast({
-        title: "Error generating review",
-        description: "Please try again.",
-        variant: "destructive",
-      });
+    } catch {
+      toast({ title: "Error generating review. Please try again.", variant: "destructive" });
     } finally {
       setIsGenerating(false);
     }
   };
 
+  const handleCycleReview = async (nextIndex: number) => {
+    setSelectedReviewIndex(nextIndex);
+    setCopied(false);
+
+    // Insert a new row for the newly selected review variant
+    const { data: inserted } = await supabase
+      .from("generated_reviews")
+      .insert({
+        business_id: business.id,
+        rating,
+        tags: selectedTags,
+        review_text: generatedReviews[nextIndex],
+        copied: false,
+        google_clicked: false,
+      })
+      .select("id")
+      .single();
+
+    if (inserted?.id) reviewIdRef.current = inserted.id;
+  };
+
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(generatedReview);
+      await navigator.clipboard.writeText(currentReview);
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
-      await supabase
-        .from("generated_reviews")
-        .update({ status: "copied" })
-        .eq("business_id", business.id)
-        .eq("status", "generated");
+
+      // Mark this specific review as copied
+      if (reviewIdRef.current) {
+        await supabase
+          .from("generated_reviews")
+          .update({ copied: true })
+          .eq("id", reviewIdRef.current);
+      }
     } catch {
       toast({ title: "Failed to copy", variant: "destructive" });
     }
   };
 
-  /**
-   * PERMANENT SOLUTION — No Google API key needed.
-   *
-   * Step 1: If we already have google_place_id in DB → instant, done.
-   * Step 2: If google_review_link is already a writereview URL → instant, done.
-   * Step 3: Try CLIENT-SIDE extraction (browser follows share.google redirects,
-   *         reads the expanded URL and extracts Place ID / CID). No API needed.
-   *         On success, save placeId to DB permanently via edge function.
-   * Step 4: If client-side fails, call edge function which tries Maps scraping.
-   *
-   * After first successful resolution, google_place_id is saved to DB,
-   * so every future click hits Step 1 (instant, no network call).
-   */
   const getReviewUrl = async (): Promise<string | null> => {
-    // Cached this session
     if (resolvedUrlRef.current) return resolvedUrlRef.current;
 
-    // Already have Place ID in DB — fastest path
     if (business.google_place_id) {
       const url = `https://search.google.com/local/writereview?placeid=${business.google_place_id}`;
       resolvedUrlRef.current = url;
       return url;
     }
 
-    // Already a writereview URL
-    if (business.google_review_link?.includes("writereview")) {
-      resolvedUrlRef.current = business.google_review_link;
-      return business.google_review_link;
-    }
-
     if (!business.google_review_link) return null;
 
-    // Client-side resolution (browser expands share.google, goo.gl, etc.)
-    const { reviewUrl: clientUrl, placeId: clientPlaceId } =
-      await resolveGoogleReviewUrl(business.google_review_link);
+    const { reviewUrl, placeId } = await resolveGoogleReviewUrl(business.google_review_link);
 
-    if (clientUrl) {
-      resolvedUrlRef.current = clientUrl;
-      // Save to DB permanently in background (no await — don't block the user)
-      supabase.functions.invoke("resolve-google-place", {
-        body: {
-          url: business.google_review_link,
-          businessId: business.id,
-          businessName: business.name,
-          placeId: clientPlaceId, // pass extracted placeId directly to edge fn
-        },
-      });
-      return clientUrl;
-    }
-
-    // Last resort: edge function tries Maps search scraping
-    try {
-      const { data, error } = await supabase.functions.invoke("resolve-google-place", {
-        body: {
-          url: business.google_review_link,
-          businessId: business.id,
-          businessName: business.name,
-        },
-      });
-      if (error) throw error;
-      if (data?.reviewUrl?.includes("writereview")) {
-        resolvedUrlRef.current = data.reviewUrl;
-        return data.reviewUrl;
+    if (reviewUrl) {
+      resolvedUrlRef.current = reviewUrl;
+      // Persist resolved place_id to DB in background
+      if (placeId) {
+        supabase
+          .from("businesses")
+          .update({ google_place_id: placeId })
+          .eq("id", business.id);
       }
-    } catch (e) {
-      console.error("Edge function fallback failed:", e);
+      return reviewUrl;
     }
 
     return null;
@@ -342,18 +241,19 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
       if (!reviewUrl) {
         toast({
           title: "Could not open Google Reviews",
-          description:
-            "Please ask the business owner to update their Google review link in Settings.",
+          description: "Please ask the business owner to update their Google review link.",
           variant: "destructive",
         });
         return;
       }
 
-      await supabase
-        .from("generated_reviews")
-        .update({ status: "clicked" })
-        .eq("business_id", business.id)
-        .eq("status", "copied");
+      // Mark as google_clicked
+      if (reviewIdRef.current) {
+        await supabase
+          .from("generated_reviews")
+          .update({ google_clicked: true })
+          .eq("id", reviewIdRef.current);
+      }
 
       window.open(reviewUrl, "_blank", "noopener,noreferrer");
     } finally {
@@ -401,17 +301,11 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
         {step === STEPS.GENERATE && (
           <Card>
             <CardContent className="pt-8 pb-8">
-              <h2 className="text-xl font-semibold text-center mb-2">
-                What did you enjoy?
-              </h2>
+              <h2 className="text-xl font-semibold text-center mb-2">What did you enjoy?</h2>
               <p className="text-gray-500 text-sm text-center mb-6">
-                Select all that apply
+                Select all that apply — we'll write the review for you!
               </p>
-              <TagSelector
-                category={business.category}
-                selected={selectedTags}
-                onToggle={toggleTag}
-              />
+              <TagSelector category={business.category} selected={selectedTags} onToggle={toggleTag} />
               <Button
                 onClick={handleGenerateReview}
                 disabled={isGenerating || selectedTags.length === 0}
@@ -429,43 +323,43 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
               <div className="text-center mb-4">
                 <CheckCircle className="text-green-500 mx-auto mb-2" size={40} />
                 <h2 className="text-xl font-semibold">Your review is ready!</h2>
-                <p className="text-gray-500 text-sm mt-1">
-                  Copy it, then click "Post on Google"
-                </p>
+                <p className="text-gray-500 text-sm mt-1">Copy it, then click "Post on Google"</p>
               </div>
-              <div className="bg-gray-50 rounded-lg p-4 mb-4 text-sm text-gray-700 leading-relaxed min-h-[100px]">
-                {generatedReview}
+
+              <div className="bg-gray-50 rounded-lg p-4 mb-2 text-sm text-gray-700 leading-relaxed min-h-[100px]">
+                {currentReview}
               </div>
+
+              {generatedReviews.length > 1 && (
+                <button
+                  onClick={() => handleCycleReview((selectedReviewIndex + 1) % generatedReviews.length)}
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 mx-auto mb-3"
+                >
+                  <span>↻</span>
+                  Try another ({selectedReviewIndex + 1}/{generatedReviews.length})
+                </button>
+              )}
+
               <Button variant="outline" onClick={handleCopy} className="w-full mb-3">
                 {copied ? (
-                  <>
-                    <CheckCircle size={16} className="mr-2 text-green-500" />
-                    Copied!
-                  </>
+                  <><CheckCircle size={16} className="mr-2 text-green-500" />Copied!</>
                 ) : (
-                  <>
-                    <Copy size={16} className="mr-2" />
-                    Copy Review
-                  </>
+                  <><Copy size={16} className="mr-2" />Copy Review</>
                 )}
               </Button>
+
               <Button
                 onClick={handlePostOnGoogle}
                 disabled={isPosting}
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >
                 {isPosting ? (
-                  <>
-                    <Loader2 size={16} className="mr-2 animate-spin" />
-                    Opening Google...
-                  </>
+                  <><Loader2 size={16} className="mr-2 animate-spin" />Opening Google...</>
                 ) : (
-                  <>
-                    <ExternalLink size={16} className="mr-2" />
-                    Post on Google
-                  </>
+                  <><ExternalLink size={16} className="mr-2" />Post on Google</>
                 )}
               </Button>
+
               <p className="text-xs text-gray-400 text-center mt-4">
                 💡 Tip: Paste the copied review after Google opens
               </p>
@@ -479,6 +373,63 @@ export default function ReviewFunnel({ business }: ReviewFunnelProps) {
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Page wrapper — fetches business by slug, inserts scan, renders funnel
+// ---------------------------------------------------------------------------
+export default function ReviewFunnelPage() {
+  const { slug } = useParams<{ slug: string }>();
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    if (!slug) return;
+
+    const load = async () => {
+      const { data, error } = await supabase
+        .from("businesses")
+        .select("id, name, slug, category, google_review_link, google_place_id")
+        .eq("slug", slug)
+        .single();
+
+      if (error || !data) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+
+      setBusiness(data);
+      setLoading(false);
+
+      // Insert scan for analytics (fire-and-forget)
+      supabase.from("scans").insert({ business_id: data.id });
+    };
+
+    load();
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-green-600" />
+      </div>
+    );
+  }
+
+  if (notFound || !business) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Business not found</h1>
+          <p className="text-gray-500">This review page doesn't exist or has been removed.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <ReviewFunnelInner business={business} />;
 }
 
 // ── Tag Selector ──────────────────────────────────────────────────────────────
