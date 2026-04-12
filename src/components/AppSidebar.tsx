@@ -1,9 +1,10 @@
-import { LayoutDashboard, Building2, QrCode, CreditCard, LogOut, Clock } from "lucide-react";
+import { LayoutDashboard, Building2, QrCode, CreditCard, LogOut, ShieldCheck } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { useSubscription } from "@/hooks/useSubscription";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 import {
   Sidebar,
   SidebarContent,
@@ -30,7 +31,19 @@ const AppSidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
-  const { isTrialActive, trialDaysLeft, isTrialExpired } = useSubscription();
+
+  const { data: isAdmin } = useQuery({
+    queryKey: ["is-admin", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("admins")
+        .select("user_id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      return !!data;
+    },
+    enabled: !!user,
+  });
 
   const handleLogout = async () => {
     await signOut();
@@ -60,20 +73,27 @@ const AppSidebar = () => {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to="/admin"
+                      end
+                      className="hover:bg-sidebar-accent/50"
+                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                    >
+                      <ShieldCheck className="mr-2 h-4 w-4 text-green-600" />
+                      {!collapsed && <span className="text-green-600 font-medium">Admin</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
-          {!collapsed && (isTrialActive || isTrialExpired) && (
-            <SidebarMenuItem>
-              <div className={`px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-2 ${isTrialExpired ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
-                <Clock className="h-3.5 w-3.5" />
-                {isTrialActive ? `Trial: ${trialDaysLeft}d left` : "Trial expired"}
-              </div>
-            </SidebarMenuItem>
-          )}
           <SidebarMenuItem>
             <SidebarMenuButton onClick={handleLogout} className="hover:bg-sidebar-accent/50 text-sidebar-foreground">
               <LogOut className="mr-2 h-4 w-4" />
