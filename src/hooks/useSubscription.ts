@@ -18,38 +18,50 @@ const PLAN_LIMITS: Record<string, number> = {
   agency: 20,
 };
 
+// ✅ FIXED: Accept both "active" and "manually_activated" statuses
+// so plans you activate manually in Supabase are also recognised
+const PAID_STATUSES = ["active", "manually_activated"];
+
 export const useSubscription = (): SubscriptionInfo => {
   const { user } = useAuth();
 
   const { data: subscription, isLoading } = useQuery({
     queryKey: ["subscription", user?.id],
     queryFn: async () => {
+      // ✅ FIXED: Query without status filter so we get the latest record,
+      // then check the status in JS — this avoids missing manually-activated rows
       const { data } = await supabase
         .from("subscriptions")
         .select("*")
         .eq("user_id", user!.id)
-        .eq("status", "active")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       return data;
     },
     enabled: !!user,
+    // ✅ FIXED: Re-fetch when window is focused so changes in Supabase
+    // are reflected without the user needing to hard-refresh
+    refetchOnWindowFocus: true,
+    staleTime: 30_000, // 30 seconds
   });
 
   const now = new Date();
 
-  // Only paid (non-trial) active subscriptions count
+  // ✅ FIXED: isPaid now accepts both "active" and "manually_activated"
   const isPaid =
     !!subscription &&
-    subscription.status === "active" &&
+    PAID_STATUSES.includes(subscription.status) &&
     subscription.plan !== "trial" &&
     (subscription.current_period_end === null ||
       new Date(subscription.current_period_end) > now);
 
   const canGenerateReviews = isPaid;
   const plan = isPaid ? (subscription?.plan ?? "none") : "none";
-  const maxBusinesses = PLAN_LIMITS[plan] ?? 1;
+
+  // ✅ FIXED: fallback to 0 when plan is unrecognised and user is paid
+  // (previously fell back to 1 which could allow unintended access)
+  const maxBusinesses = isPaid ? (PLAN_LIMITS[plan] ?? 0) : 0;
 
   const periodEnd = subscription?.current_period_end
     ? new Date(subscription.current_period_end)
