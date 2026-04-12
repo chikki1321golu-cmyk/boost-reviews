@@ -5,11 +5,11 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, AlertTriangle, CheckCircle2, CreditCard } from "lucide-react";
+import { CheckCircle2, AlertTriangle, CreditCard } from "lucide-react";
 
 const DashboardSubscription = () => {
   const { user } = useAuth();
-  const { subscription, isTrialActive, isTrialExpired, isPaid, trialDaysLeft, plan } = useSubscription();
+  const { subscription, isPaid, plan, daysLeft } = useSubscription();
 
   const { data: payments } = useQuery({
     queryKey: ["payments", user?.id],
@@ -26,52 +26,40 @@ const DashboardSubscription = () => {
 
   const planLabel = isPaid
     ? `${plan.charAt(0).toUpperCase() + plan.slice(1)} Plan`
-    : isTrialActive
-      ? `Trial (${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} left)`
-      : "No Active Plan";
+    : "No Active Plan";
 
   return (
     <DashboardLayout>
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <h1 className="text-2xl font-heading font-bold text-foreground">Subscription</h1>
-          <Badge variant={isTrialExpired ? "destructive" : "secondary"} className="font-heading">
+          <Badge variant={isPaid ? "default" : "destructive"} className="font-heading">
             {planLabel}
           </Badge>
         </div>
 
-        {/* Trial / Subscription Status Card */}
+        {/* Status Card */}
         <div className="bg-card rounded-xl border border-border p-5 shadow-card mb-6">
-          {isTrialActive && (
-            <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-primary" />
-              <div>
-                <p className="font-heading font-semibold text-card-foreground">Free Trial Active</p>
-                <p className="text-sm text-muted-foreground">
-                  You have {trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""} remaining. All features are available. After your trial, upgrade to keep generating AI reviews.
-                </p>
-              </div>
-            </div>
-          )}
-          {isTrialExpired && (
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-              <div>
-                <p className="font-heading font-semibold text-card-foreground">Trial Expired</p>
-                <p className="text-sm text-muted-foreground">
-                  Your free trial has ended. QR scans still work, but AI review generation is disabled. Upgrade below to unlock all features.
-                </p>
-              </div>
-            </div>
-          )}
-          {isPaid && (
+          {isPaid ? (
             <div className="flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 text-primary" />
               <div>
                 <p className="font-heading font-semibold text-card-foreground">Active Subscription</p>
                 <p className="text-sm text-muted-foreground">
-                  Your {plan.charAt(0).toUpperCase() + plan.slice(1)} plan renews every 28 days.
-                  {subscription?.current_period_end && ` Next renewal: ${new Date(subscription.current_period_end).toLocaleDateString()}`}
+                  Your {plan.charAt(0).toUpperCase() + plan.slice(1)} plan is active.
+                  {daysLeft > 0 && ` ${daysLeft} day${daysLeft !== 1 ? "s" : ""} remaining.`}
+                  {subscription?.current_period_end &&
+                    ` Expires: ${new Date(subscription.current_period_end).toLocaleDateString()}`}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              <div>
+                <p className="font-heading font-semibold text-card-foreground">No Active Plan</p>
+                <p className="text-sm text-muted-foreground">
+                  All features are locked. Pay via UPI and choose a plan below to activate your account.
                 </p>
               </div>
             </div>
