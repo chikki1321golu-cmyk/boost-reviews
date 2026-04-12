@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { Star, Copy, ExternalLink, CheckCircle, Loader2 } from "lucide-react";
+import { Star, Copy, ExternalLink, CheckCircle, Loader2, Lock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
@@ -91,6 +91,54 @@ async function trackEvent(body: Record<string, unknown>) {
 }
 
 // ---------------------------------------------------------------------------
+// ✅ NEW: Blocked screen — shown when business owner has no plan or expired plan
+// ---------------------------------------------------------------------------
+function ReviewBlocked({ reason, businessName }: { reason: "no_plan" | "expired"; businessName?: string }) {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
+        <div className="flex items-center justify-center w-14 h-14 rounded-full bg-gray-100 mx-auto mb-5">
+          {reason === "expired"
+            ? <RefreshCw className="w-6 h-6 text-gray-400" />
+            : <Lock className="w-6 h-6 text-gray-400" />
+          }
+        </div>
+
+        {businessName && (
+          <p className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-widest">
+            {businessName}
+          </p>
+        )}
+
+        {reason === "expired" ? (
+          <>
+            <h2 className="text-lg font-semibold text-gray-800 mb-2">
+              Reviews temporarily unavailable
+            </h2>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              This business's review page is currently inactive. Please check back later.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 className="text-lg font-semibold text-gray-800 mb-2">
+              Page not available
+            </h2>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              This review page is not currently active. Please check back later.
+            </p>
+          </>
+        )}
+
+        <p className="text-center text-xs text-gray-300 mt-8">
+          Powered by M&amp;M Fintech
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Inner funnel component (receives resolved business)
 // ---------------------------------------------------------------------------
 function ReviewFunnelInner({ business }: { business: Business }) {
@@ -103,7 +151,6 @@ function ReviewFunnelInner({ business }: { business: Business }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [copied, setCopied] = useState(false);
-  // reviewId returned by generate-reviews edge function (inserted server-side)
   const reviewIdRef = useRef<string | null>(null);
   const resolvedUrlRef = useRef<string | null>(null);
 
@@ -135,7 +182,6 @@ function ReviewFunnelInner({ business }: { business: Business }) {
 
     setIsGenerating(true);
     try {
-      // generate-reviews now also inserts the row server-side and returns reviewId
       const { data, error } = await supabase.functions.invoke("generate-reviews", {
         body: {
           businessName: business.name,
@@ -145,12 +191,31 @@ function ReviewFunnelInner({ business }: { business: Business }) {
           tags: selectedTags,
         },
       });
+
+      // ✅ Handle plan-gate errors returned from edge function
+      if (error || data?.error === "subscription_required") {
+        const reason = data?.reason;
+        if (reason === "expired") {
+          toast({
+            title: "Review page inactive",
+            description: "This business's plan has expired.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Review page not available",
+            description: "This business does not have an active plan.",
+            variant: "destructive",
+          });
+        }
+        return;
+      }
+
       if (error) throw error;
 
       const reviews: string[] = data.reviews || (data.review ? [data.review] : []);
       if (reviews.length === 0) throw new Error("No reviews generated");
 
-      // reviewId is inserted server-side by the edge function — always available
       if (data.reviewId) reviewIdRef.current = data.reviewId;
 
       setGeneratedReviews(reviews);
@@ -167,7 +232,6 @@ function ReviewFunnelInner({ business }: { business: Business }) {
     setSelectedReviewIndex(nextIndex);
     setCopied(false);
 
-    // Track the new variant via edge function — returns new reviewId
     const { data } = await supabase.functions.invoke("track-review", {
       body: {
         event: "cycle",
@@ -186,7 +250,6 @@ function ReviewFunnelInner({ business }: { business: Business }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
 
-      // Fire-and-forget — edge function handles the DB write server-side
       if (reviewIdRef.current) {
         trackEvent({ event: "copied", reviewId: reviewIdRef.current });
       }
@@ -233,7 +296,6 @@ function ReviewFunnelInner({ business }: { business: Business }) {
         return;
       }
 
-      // Fire-and-forget tracking
       if (reviewIdRef.current) {
         trackEvent({ event: "google_clicked", reviewId: reviewIdRef.current });
       }
@@ -351,7 +413,7 @@ function ReviewFunnelInner({ business }: { business: Business }) {
         )}
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          Powered by M&M Fintech
+          Powered by M&amp;M Fintech
         </p>
       </div>
     </div>
@@ -359,13 +421,15 @@ function ReviewFunnelInner({ business }: { business: Business }) {
 }
 
 // ---------------------------------------------------------------------------
-// Page wrapper — fetches business by slug, inserts scan, renders funnel
+// ✅ Page wrapper — fetches business, checks plan status, renders funnel
 // ---------------------------------------------------------------------------
 export default function ReviewFunnelPage() {
   const { slug } = useParams<{ slug: string }>();
   const [business, setBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  // ✅ NEW: track plan status for this business
+  const [planStatus, setPlanStatus] = useState<"loading" | "ok" | "no_plan" | "expired">("loading");
 
   useEffect(() => {
     if (!slug) return;
@@ -384,18 +448,32 @@ export default function ReviewFunnelPage() {
       }
 
       setBusiness(data);
+
+      // ✅ NEW: Check if business owner has an active paid plan
+      const { data: statusData, error: statusError } = await supabase
+        .rpc("check_business_can_generate", { p_business_id: data.id });
+
+      if (statusError) {
+        console.warn("Plan check failed (defaulting to ok):", statusError.message);
+        setPlanStatus("ok"); // fail open — edge function is the hard gate
+      } else {
+        setPlanStatus(statusData as "ok" | "no_plan" | "expired" | "loading");
+      }
+
       setLoading(false);
 
-      // Track scan via edge function (service role key — bypasses RLS, always works)
-      supabase.functions.invoke("track-review", {
-        body: { event: "scan", businessId: data.id },
-      });
+      // Track scan (only for active businesses)
+      if (!statusError && statusData === "ok") {
+        supabase.functions.invoke("track-review", {
+          body: { event: "scan", businessId: data.id },
+        });
+      }
     };
 
     load();
   }, [slug]);
 
-  if (loading) {
+  if (loading || planStatus === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-green-600" />
@@ -412,6 +490,11 @@ export default function ReviewFunnelPage() {
         </div>
       </div>
     );
+  }
+
+  // ✅ NEW: Block the entire funnel if no plan or expired
+  if (planStatus === "no_plan" || planStatus === "expired") {
+    return <ReviewBlocked reason={planStatus} businessName={business.name} />;
   }
 
   return <ReviewFunnelInner business={business} />;
