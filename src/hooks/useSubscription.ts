@@ -1,90 +1,82 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/contexts/AuthContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useQuery } from "@tanstack/react-query";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import ReviewFunnelPage from "./pages/ReviewFunnel";
-import Dashboard from "./pages/Dashboard";
-import DashboardBusiness from "./pages/DashboardBusiness";
-import DashboardQRCode from "./pages/DashboardQRCode";
-import DashboardSubscription from "./pages/DashboardSubscription";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import FAQ from "./pages/FAQ";
-import AdminPanel from "./pages/AdminPanel";
 
-const queryClient = new QueryClient();
+export interface SubscriptionInfo {
+  subscription: any | null;
+  isPaid: boolean;
+  canGenerateReviews: boolean;
+  maxBusinesses: number;
+  plan: string;
+  isLoading: boolean;
+  daysLeft: number;
+}
 
-// ✅ FIXED: AdminRoute uses <Outlet /> pattern so it runs INSIDE
-// QueryClientProvider + AuthProvider — this is why useQuery works correctly here.
-// Previously it was defined outside providers and silently failed.
-const AdminRoute = () => {
-  const { user, loading } = useAuth();
-
-  const { data: isAdmin, isLoading: adminLoading } = useQuery({
-    queryKey: ["is-admin", user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("admins")
-        .select("user_id")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      return !!data;
-    },
-    enabled: !!user,
-  });
-
-  // Still loading auth or admin check — render nothing yet
-  if (loading || adminLoading) return null;
-
-  // Not logged in → send to login
-  if (!user) return <Navigate to="/login" replace />;
-
-  // Logged in but NOT in the admins table → send to dashboard
-  if (!isAdmin) return <Navigate to="/dashboard" replace />;
-
-  // ✅ Confirmed admin — render child route via Outlet
-  return <Outlet />;
+const PLAN_LIMITS: Record<string, number> = {
+  starter: 1,
+  growth: 3,
+  agency: 20,
 };
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/faq" element={<FAQ />} />
-            <Route path="/r/:slug" element={<ReviewFunnelPage />} />
+export const useSubscription = (): SubscriptionInfo => {
+  const { user } = useAuth();
 
-            {/* Protected user routes */}
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/dashboard/business" element={<ProtectedRoute><DashboardBusiness /></ProtectedRoute>} />
-            <Route path="/dashboard/qrcode" element={<ProtectedRoute><DashboardQRCode /></ProtectedRoute>} />
-            <Route path="/dashboard/subscription" element={<ProtectedRoute><DashboardSubscription /></ProtectedRoute>} />
+  const { data: subscription, isLoading } = useQuery({
+    queryKey: ["subscription", user?.id],
+    queryFn: async () => {
+      // ✅ FIXED: Fetch latest subscription without status filter.
+      // Previously filtered .eq("status", "active") which missed edge cases.
+      const { data } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+    // ✅ Re-fetch when user switches back to tab — picks up admin-activated plans
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+  });
 
-            {/* ✅ Admin-only route — AdminRoute checks admins table before rendering */}
-            <Route element={<AdminRoute />}>
-              <Route path="/admin" element={<AdminPanel />} />
-            </Route>
+  const now = new Date();
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+  // ✅ FIXED: isPaid checks status === "active" AND plan !== "trial"
+  // The DB constraint only allows: active | cancelled | expired | past_due
+  // so "active" is the only valid paid status — trial plan is excluded
+  const isPaid =
+    !!subscription &&
+    subscription.status === "active" &&
+    subscription.plan !== "trial" &&
+    (subscription.current_period_end === null ||
+      new Date(subscription.current_period_end) > now);
 
-export default App;
+  const canGenerateReviews = isPaid;
+  const plan = isPaid ? (subscription?.plan ?? "none") : "none";
+
+  // ✅ FIXED: Read max_businesses directly from DB row (which we now keep correct)
+  // Falls back to PLAN_LIMITS from code if the DB value is missing
+  const maxBusinesses = isPaid
+    ? (subscription?.max_businesses ?? PLAN_LIMITS[plan] ?? 0)
+    : 0;
+
+  const periodEnd = subscription?.current_period_end
+    ? new Date(subscription.current_period_end)
+    : null;
+  const daysLeft =
+    isPaid && periodEnd
+      ? Math.max(0, Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+      : 0;
+
+  return {
+    subscription,
+    isPaid,
+    canGenerateReviews,
+    maxBusinesses,
+    plan,
+    isLoading,
+    daysLeft,
+  };
+};
