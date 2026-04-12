@@ -80,6 +80,17 @@ async function resolveGoogleReviewUrl(
 }
 
 // ---------------------------------------------------------------------------
+// Helper: call track-review edge function (fire-and-forget safe)
+// ---------------------------------------------------------------------------
+async function trackEvent(body: Record<string, unknown>) {
+  try {
+    await supabase.functions.invoke("track-review", { body });
+  } catch (e) {
+    console.warn("track-review failed (non-fatal):", e);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Inner funnel component (receives resolved business)
 // ---------------------------------------------------------------------------
 function ReviewFunnelInner({ business }: { business: Business }) {
@@ -92,7 +103,7 @@ function ReviewFunnelInner({ business }: { business: Business }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
   const [copied, setCopied] = useState(false);
-  // Track the inserted review ID so we can update copied/clicked flags
+  // reviewId returned by generate-reviews edge function (inserted server-side)
   const reviewIdRef = useRef<string | null>(null);
   const resolvedUrlRef = useRef<string | null>(null);
 
@@ -124,6 +135,7 @@ function ReviewFunnelInner({ business }: { business: Business }) {
 
     setIsGenerating(true);
     try {
+      // generate-reviews now also inserts the row server-side and returns reviewId
       const { data, error } = await supabase.functions.invoke("generate-reviews", {
         body: {
           businessName: business.name,
@@ -138,26 +150,11 @@ function ReviewFunnelInner({ business }: { business: Business }) {
       const reviews: string[] = data.reviews || (data.review ? [data.review] : []);
       if (reviews.length === 0) throw new Error("No reviews generated");
 
+      // reviewId is inserted server-side by the edge function — always available
+      if (data.reviewId) reviewIdRef.current = data.reviewId;
+
       setGeneratedReviews(reviews);
       setSelectedReviewIndex(0);
-
-      // Insert the first review and save its ID for tracking
-      const { data: inserted } = await supabase
-        .from("generated_reviews")
-        .insert({
-          business_id: business.id,
-          rating,
-          tags: selectedTags,
-          review_text: reviews[0],
-          status: "generated",
-          copied: false,
-          google_clicked: false,
-        })
-        .select("id")
-        .single();
-
-      if (inserted?.id) reviewIdRef.current = inserted.id;
-
       setStep(STEPS.POST);
     } catch {
       toast({ title: "Error generating review. Please try again.", variant: "destructive" });
@@ -170,21 +167,17 @@ function ReviewFunnelInner({ business }: { business: Business }) {
     setSelectedReviewIndex(nextIndex);
     setCopied(false);
 
-    // Insert a new row for the newly selected review variant
-    const { data: inserted } = await supabase
-      .from("generated_reviews")
-      .insert({
-        business_id: business.id,
+    // Track the new variant via edge function — returns new reviewId
+    const { data } = await supabase.functions.invoke("track-review", {
+      body: {
+        event: "cycle",
+        businessId: business.id,
         rating,
         tags: selectedTags,
-        review_text: generatedReviews[nextIndex],
-        copied: false,
-        google_clicked: false,
-      })
-      .select("id")
-      .single();
-
-    if (inserted?.id) reviewIdRef.current = inserted.id;
+        reviewText: generatedReviews[nextIndex],
+      },
+    });
+    if (data?.reviewId) reviewIdRef.current = data.reviewId;
   };
 
   const handleCopy = async () => {
@@ -193,12 +186,9 @@ function ReviewFunnelInner({ business }: { business: Business }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
 
-      // Mark this specific review as copied
+      // Fire-and-forget — edge function handles the DB write server-side
       if (reviewIdRef.current) {
-        await supabase
-          .from("generated_reviews")
-          .update({ copied: true })
-          .eq("id", reviewIdRef.current);
+        trackEvent({ event: "copied", reviewId: reviewIdRef.current });
       }
     } catch {
       toast({ title: "Failed to copy", variant: "destructive" });
@@ -220,12 +210,8 @@ function ReviewFunnelInner({ business }: { business: Business }) {
 
     if (reviewUrl) {
       resolvedUrlRef.current = reviewUrl;
-      // Persist resolved place_id to DB in background
       if (placeId) {
-        supabase
-          .from("businesses")
-          .update({ google_place_id: placeId })
-          .eq("id", business.id);
+        supabase.from("businesses").update({ google_place_id: placeId }).eq("id", business.id);
       }
       return reviewUrl;
     }
@@ -247,12 +233,9 @@ function ReviewFunnelInner({ business }: { business: Business }) {
         return;
       }
 
-      // Mark as google_clicked
+      // Fire-and-forget tracking
       if (reviewIdRef.current) {
-        await supabase
-          .from("generated_reviews")
-          .update({ google_clicked: true })
-          .eq("id", reviewIdRef.current);
+        trackEvent({ event: "google_clicked", reviewId: reviewIdRef.current });
       }
 
       window.open(reviewUrl, "_blank", "noopener,noreferrer");
@@ -403,8 +386,10 @@ export default function ReviewFunnelPage() {
       setBusiness(data);
       setLoading(false);
 
-      // Insert scan for analytics (fire-and-forget)
-      supabase.from("scans").insert({ business_id: data.id });
+      // Track scan via edge function (service role key — bypasses RLS, always works)
+      supabase.functions.invoke("track-review", {
+        body: { event: "scan", businessId: data.id },
+      });
     };
 
     load();
