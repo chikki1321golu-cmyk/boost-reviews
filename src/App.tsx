@@ -15,6 +15,7 @@ import DashboardSubscription from "./pages/DashboardSubscription";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import FAQ from "./pages/FAQ";
+import AdminPanel from "./pages/AdminPanel";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/dashboard/subscription" element={<ProtectedRoute><DashboardSubscription /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
             <Route path="/faq" element={<FAQ />} />
+            <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>
