@@ -4,14 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 
 export interface SubscriptionInfo {
   subscription: any | null;
-  isTrialActive: boolean;
-  isTrialExpired: boolean;
   isPaid: boolean;
   canGenerateReviews: boolean;
   maxBusinesses: number;
-  trialDaysLeft: number;
   plan: string;
   isLoading: boolean;
+  daysLeft: number;
 }
 
 const PLAN_LIMITS: Record<string, number> = {
@@ -23,7 +21,6 @@ const PLAN_LIMITS: Record<string, number> = {
 export const useSubscription = (): SubscriptionInfo => {
   const { user } = useAuth();
 
-  // Fetch the most recent active subscription
   const { data: subscription, isLoading } = useQuery({
     queryKey: ["subscription", user?.id],
     queryFn: async () => {
@@ -41,37 +38,34 @@ export const useSubscription = (): SubscriptionInfo => {
   });
 
   const now = new Date();
-  const isTrial = subscription?.is_trial ?? false;
-  const trialEnd = subscription?.trial_end ? new Date(subscription.trial_end) : null;
 
-  // Trial is active only if is_trial=true AND trial hasn't expired
-  const isTrialActive = isTrial && !!trialEnd && trialEnd > now;
-  // Trial expired = was a trial but time ran out
-  const isTrialExpired = isTrial && !!trialEnd && trialEnd <= now;
+  // Only paid (non-trial) active subscriptions count
+  const isPaid =
+    !!subscription &&
+    subscription.status === "active" &&
+    subscription.plan !== "trial" &&
+    (subscription.current_period_end === null ||
+      new Date(subscription.current_period_end) > now);
 
-  // Paid = not a trial AND status is active
-  const isPaid = !isTrial && subscription?.status === "active";
-
-  // Can generate reviews only during active trial or with paid plan
-  const canGenerateReviews = isTrialActive || isPaid;
-
-  const plan = subscription?.plan ?? "none";
+  const canGenerateReviews = isPaid;
+  const plan = isPaid ? (subscription?.plan ?? "none") : "none";
   const maxBusinesses = PLAN_LIMITS[plan] ?? 1;
 
-  const trialDaysLeft =
-    isTrialActive && trialEnd
-      ? Math.max(0, Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+  const periodEnd = subscription?.current_period_end
+    ? new Date(subscription.current_period_end)
+    : null;
+  const daysLeft =
+    isPaid && periodEnd
+      ? Math.max(0, Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
       : 0;
 
   return {
     subscription,
-    isTrialActive,
-    isTrialExpired,
     isPaid,
     canGenerateReviews,
     maxBusinesses,
-    trialDaysLeft,
     plan,
     isLoading,
+    daysLeft,
   };
 };
