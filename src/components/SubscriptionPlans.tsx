@@ -1,17 +1,15 @@
-import { useRazorpay, PlanId } from "@/hooks/useRazorpay";
 import { useAuth } from "@/contexts/AuthContext";
 import { Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const PLANS = [
   {
-    id: "starter" as PlanId,
+    id: "starter",
     name: "Starter",
     price: 499,
     period: "/28 days",
     description: "Perfect for small businesses",
     color: "border-gray-200",
-    hasTrial: true,
     features: [
       "1 business",
       "100 AI reviews/month",
@@ -22,13 +20,12 @@ const PLANS = [
     popular: false,
   },
   {
-    id: "growth" as PlanId,
+    id: "growth",
     name: "Growth",
     price: 1499,
     period: "/28 days",
     description: "For growing businesses",
     color: "border-green-600",
-    hasTrial: false,
     features: [
       "3 businesses",
       "Unlimited AI reviews",
@@ -40,13 +37,12 @@ const PLANS = [
     popular: true,
   },
   {
-    id: "agency" as PlanId,
+    id: "agency",
     name: "Agency",
     price: 3999,
     period: "/28 days",
     description: "For agencies & enterprises",
     color: "border-gray-200",
-    hasTrial: false,
     features: [
       "20 businesses",
       "Unlimited AI reviews",
@@ -60,28 +56,21 @@ const PLANS = [
 ];
 
 export default function SubscriptionPlans() {
-  const { initiatePayment, loading } = useRazorpay();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const handleUpgrade = (planId: PlanId) => {
-    if (!user) {
-      navigate("/signup");
-      return;
-    }
-    initiatePayment(planId, user.id, user.email!, user.user_metadata?.full_name);
+  const handleClick = () => {
+    if (!user) navigate("/signup");
   };
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="text-center mb-10">
         <h1 className="text-3xl font-bold text-foreground mb-2">Choose your plan</h1>
-        <p className="text-muted-foreground">
-          All plans renew every 28 days · Cancel anytime
-        </p>
+        <p className="text-muted-foreground">All plans renew every 28 days · Cancel anytime</p>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-3 gap-6 mb-8">
         {PLANS.map((plan) => (
           <div
             key={plan.id}
@@ -94,7 +83,6 @@ export default function SubscriptionPlans() {
                 </span>
               </div>
             )}
-
             <div className="mb-4">
               <h2 className="text-xl font-bold text-foreground">{plan.name}</h2>
               <p className="text-muted-foreground text-sm mt-1">{plan.description}</p>
@@ -105,11 +93,7 @@ export default function SubscriptionPlans() {
                 </span>
                 <span className="text-muted-foreground text-sm">{plan.period}</span>
               </div>
-              {plan.hasTrial ? (
-                <p className="text-xs text-primary font-semibold mt-1">✨ 7-day free trial included</p>
-              ) : (
-                <p className="text-xs text-muted-foreground mt-1">Renews every 28 days</p>
-              )}
+              <p className="text-xs text-muted-foreground mt-1">Renews every 28 days</p>
             </div>
 
             <ul className="space-y-3 flex-1 mb-6">
@@ -122,23 +106,21 @@ export default function SubscriptionPlans() {
             </ul>
 
             <button
-              onClick={() => handleUpgrade(plan.id)}
-              disabled={loading}
+              onClick={handleClick}
               className={`w-full py-3 rounded-xl font-semibold text-sm transition-all
                 ${plan.popular
                   ? "bg-green-600 hover:bg-green-700 text-white"
                   : "bg-secondary hover:bg-secondary/80 text-foreground border border-border"
-                }
-                disabled:opacity-50 disabled:cursor-not-allowed`}
+                }`}
             >
-              {loading ? "Processing..." : !user ? "Sign up to buy" : `Upgrade to ${plan.name}`}
+              {!user ? "Sign up to buy" : `Choose ${plan.name}`}
             </button>
           </div>
         ))}
       </div>
 
-      <p className="text-center text-xs text-muted-foreground mt-6">
-        Secure payments powered by Razorpay · All prices in INR · Cancel anytime
+      <p className="text-center text-xs text-muted-foreground">
+        Pay via UPI · All prices in INR · Contact us after payment to activate your plan
       </p>
     </div>
   );
