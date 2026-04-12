@@ -55,6 +55,7 @@ export type Database = {
       }
       generated_reviews: {
         Row: {
+          anon_token: string
           business_id: string
           copied: boolean | null
           created_at: string
@@ -62,9 +63,12 @@ export type Database = {
           id: string
           rating: number
           review_text: string
+          status: string
           tags: string[] | null
+          user_id: string | null
         }
         Insert: {
+          anon_token?: string
           business_id: string
           copied?: boolean | null
           created_at?: string
@@ -72,9 +76,12 @@ export type Database = {
           id?: string
           rating: number
           review_text: string
+          status?: string
           tags?: string[] | null
+          user_id?: string | null
         }
         Update: {
+          anon_token?: string
           business_id?: string
           copied?: boolean | null
           created_at?: string
@@ -82,7 +89,9 @@ export type Database = {
           id?: string
           rating?: number
           review_text?: string
+          status?: string
           tags?: string[] | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -232,7 +241,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      insert_generated_review: {
+        Args: {
+          p_business_id: string
+          p_rating: number
+          p_tags: string[]
+          p_review_text: string
+          p_status?: string
+        }
+        Returns: string
+      }
+      mark_review_copied: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      mark_review_google_clicked: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
