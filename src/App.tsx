@@ -1,9 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { useQuery } from "@tanstack/react-query";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -16,14 +19,13 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import FAQ from "./pages/FAQ";
 import AdminPanel from "./pages/AdminPanel";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
-import { useQuery } from "@tanstack/react-query";
 
 const queryClient = new QueryClient();
 
-// ✅ NEW: Admin-only route guard — checks the admins table in Supabase
-const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+// ✅ FIXED: AdminRoute uses <Outlet /> pattern so it runs INSIDE
+// QueryClientProvider + AuthProvider — this is why useQuery works correctly here.
+// Previously it was defined outside providers and silently failed.
+const AdminRoute = () => {
   const { user, loading } = useAuth();
 
   const { data: isAdmin, isLoading: adminLoading } = useQuery({
@@ -39,16 +41,17 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
     enabled: !!user,
   });
 
-  // Wait for auth + admin check to finish
+  // Still loading auth or admin check — render nothing yet
   if (loading || adminLoading) return null;
 
-  // Not logged in → go to login
+  // Not logged in → send to login
   if (!user) return <Navigate to="/login" replace />;
 
-  // Logged in but not admin → redirect to dashboard
+  // Logged in but NOT in the admins table → send to dashboard
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
 
-  return <>{children}</>;
+  // ✅ Confirmed admin — render child route via Outlet
+  return <Outlet />;
 };
 
 const App = () => (
@@ -62,15 +65,21 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/faq" element={<FAQ />} />
             <Route path="/r/:slug" element={<ReviewFunnelPage />} />
+
+            {/* Protected user routes */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/dashboard/business" element={<ProtectedRoute><DashboardBusiness /></ProtectedRoute>} />
             <Route path="/dashboard/qrcode" element={<ProtectedRoute><DashboardQRCode /></ProtectedRoute>} />
             <Route path="/dashboard/subscription" element={<ProtectedRoute><DashboardSubscription /></ProtectedRoute>} />
+
+            {/* ✅ Admin-only route — AdminRoute checks admins table before rendering */}
+            <Route element={<AdminRoute />}>
+              <Route path="/admin" element={<AdminPanel />} />
+            </Route>
+
             <Route path="*" element={<NotFound />} />
-            <Route path="/faq" element={<FAQ />} />
-            {/* ✅ FIXED: /admin now uses AdminRoute — only you (in admins table) can access it */}
-            <Route path="/admin" element={<AdminRoute><AdminPanel /></AdminRoute>} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>
