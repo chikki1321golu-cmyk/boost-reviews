@@ -16,11 +16,12 @@ const DashboardQRCode = () => {
   const [downloading, setDownloading] = useState<string | null>(null);
 
   const { data: businesses, isLoading } = useQuery({
-    queryKey: ["businesses"],
+    queryKey: ["businesses", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("businesses")
         .select("*")
+        .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
