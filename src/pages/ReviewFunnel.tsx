@@ -55,11 +55,9 @@ async function resolveGoogleReviewUrl(
   rawUrl: string
 ): Promise<{ reviewUrl: string | null; placeId: string | null }> {
   const url = rawUrl.trim();
-
   if (url.includes("writereview")) {
     return { reviewUrl: url, placeId: extractPlaceIdFromUrl(url) };
   }
-
   const directId = extractPlaceIdFromUrl(url);
   if (directId) {
     return {
@@ -67,7 +65,6 @@ async function resolveGoogleReviewUrl(
       reviewUrl: `https://search.google.com/local/writereview?placeid=${directId}`,
     };
   }
-
   const directCid = extractCidFromUrl(url);
   if (directCid) {
     return {
@@ -75,7 +72,6 @@ async function resolveGoogleReviewUrl(
       reviewUrl: `https://search.google.com/local/writereview?cid=${directCid}`,
     };
   }
-
   return { reviewUrl: url, placeId: null };
 }
 
@@ -91,17 +87,24 @@ async function trackEvent(body: Record<string, unknown>) {
 }
 
 // ---------------------------------------------------------------------------
-// ✅ NEW: Blocked screen — shown when business owner has no plan or expired plan
+// ✅ Blocked screen — shown when business owner has no plan or expired plan
 // ---------------------------------------------------------------------------
-function ReviewBlocked({ reason, businessName }: { reason: "no_plan" | "expired"; businessName?: string }) {
+function ReviewBlocked({
+  reason,
+  businessName,
+}: {
+  reason: "no_plan" | "expired";
+  businessName?: string;
+}) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center p-4">
       <div className="w-full max-w-sm bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
         <div className="flex items-center justify-center w-14 h-14 rounded-full bg-gray-100 mx-auto mb-5">
-          {reason === "expired"
-            ? <RefreshCw className="w-6 h-6 text-gray-400" />
-            : <Lock className="w-6 h-6 text-gray-400" />
-          }
+          {reason === "expired" ? (
+            <RefreshCw className="w-6 h-6 text-gray-400" />
+          ) : (
+            <Lock className="w-6 h-6 text-gray-400" />
+          )}
         </div>
 
         {businessName && (
@@ -192,22 +195,18 @@ function ReviewFunnelInner({ business }: { business: Business }) {
         },
       });
 
-      // ✅ Handle plan-gate errors returned from edge function
-      if (error || data?.error === "subscription_required") {
+      // ✅ Handle plan-gate errors from edge function
+      if (data?.error === "subscription_required") {
         const reason = data?.reason;
-        if (reason === "expired") {
-          toast({
-            title: "Review page inactive",
-            description: "This business's plan has expired.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Review page not available",
-            description: "This business does not have an active plan.",
-            variant: "destructive",
-          });
-        }
+        toast({
+          title: reason === "expired"
+            ? "Review page inactive"
+            : "Review page not available",
+          description: reason === "expired"
+            ? "This business's plan has expired."
+            : "This business does not have an active plan.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -231,7 +230,6 @@ function ReviewFunnelInner({ business }: { business: Business }) {
   const handleCycleReview = async (nextIndex: number) => {
     setSelectedReviewIndex(nextIndex);
     setCopied(false);
-
     const { data } = await supabase.functions.invoke("track-review", {
       body: {
         event: "cycle",
@@ -249,7 +247,6 @@ function ReviewFunnelInner({ business }: { business: Business }) {
       await navigator.clipboard.writeText(currentReview);
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
-
       if (reviewIdRef.current) {
         trackEvent({ event: "copied", reviewId: reviewIdRef.current });
       }
@@ -260,17 +257,13 @@ function ReviewFunnelInner({ business }: { business: Business }) {
 
   const getReviewUrl = async (): Promise<string | null> => {
     if (resolvedUrlRef.current) return resolvedUrlRef.current;
-
     if (business.google_place_id) {
       const url = `https://search.google.com/local/writereview?placeid=${business.google_place_id}`;
       resolvedUrlRef.current = url;
       return url;
     }
-
     if (!business.google_review_link) return null;
-
     const { reviewUrl, placeId } = await resolveGoogleReviewUrl(business.google_review_link);
-
     if (reviewUrl) {
       resolvedUrlRef.current = reviewUrl;
       if (placeId) {
@@ -278,7 +271,6 @@ function ReviewFunnelInner({ business }: { business: Business }) {
       }
       return reviewUrl;
     }
-
     return null;
   };
 
@@ -286,7 +278,6 @@ function ReviewFunnelInner({ business }: { business: Business }) {
     setIsPosting(true);
     try {
       const reviewUrl = await getReviewUrl();
-
       if (!reviewUrl) {
         toast({
           title: "Could not open Google Reviews",
@@ -295,11 +286,9 @@ function ReviewFunnelInner({ business }: { business: Business }) {
         });
         return;
       }
-
       if (reviewIdRef.current) {
         trackEvent({ event: "google_clicked", reviewId: reviewIdRef.current });
       }
-
       window.open(reviewUrl, "_blank", "noopener,noreferrer");
     } finally {
       setIsPosting(false);
@@ -421,14 +410,13 @@ function ReviewFunnelInner({ business }: { business: Business }) {
 }
 
 // ---------------------------------------------------------------------------
-// ✅ Page wrapper — fetches business, checks plan status, renders funnel
+// ✅ Page wrapper — fetches business, checks plan, renders funnel or block screen
 // ---------------------------------------------------------------------------
 export default function ReviewFunnelPage() {
   const { slug } = useParams<{ slug: string }>();
   const [business, setBusiness] = useState<Business | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  // ✅ NEW: track plan status for this business
   const [planStatus, setPlanStatus] = useState<"loading" | "ok" | "no_plan" | "expired">("loading");
 
   useEffect(() => {
@@ -449,7 +437,7 @@ export default function ReviewFunnelPage() {
 
       setBusiness(data);
 
-      // ✅ NEW: Check if business owner has an active paid plan
+      // ✅ Check if business owner has an active paid plan
       const { data: statusData, error: statusError } = await supabase
         .rpc("check_business_can_generate", { p_business_id: data.id });
 
@@ -457,12 +445,12 @@ export default function ReviewFunnelPage() {
         console.warn("Plan check failed (defaulting to ok):", statusError.message);
         setPlanStatus("ok"); // fail open — edge function is the hard gate
       } else {
-        setPlanStatus(statusData as "ok" | "no_plan" | "expired" | "loading");
+        setPlanStatus(statusData as "ok" | "no_plan" | "expired");
       }
 
       setLoading(false);
 
-      // Track scan (only for active businesses)
+      // Track scan only for active businesses
       if (!statusError && statusData === "ok") {
         supabase.functions.invoke("track-review", {
           body: { event: "scan", businessId: data.id },
@@ -492,7 +480,7 @@ export default function ReviewFunnelPage() {
     );
   }
 
-  // ✅ NEW: Block the entire funnel if no plan or expired
+  // ✅ Block entire funnel if no plan or expired
   if (planStatus === "no_plan" || planStatus === "expired") {
     return <ReviewBlocked reason={planStatus} businessName={business.name} />;
   }
