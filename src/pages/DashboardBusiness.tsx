@@ -14,16 +14,20 @@ import { Link } from "react-router-dom";
 const DashboardBusiness = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { maxBusinesses, isTrialActive, isTrialExpired, canGenerateReviews } = useSubscription();
+  const { maxBusinesses, canGenerateReviews } = useSubscription();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [category, setCategory] = useState("");
   const [googleLink, setGoogleLink] = useState("");
 
   const { data: businesses, isLoading } = useQuery({
-    queryKey: ["businesses"],
+    queryKey: ["businesses", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("businesses").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("businesses")
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -88,9 +92,7 @@ const DashboardBusiness = () => {
             <AlertTriangle className="w-8 h-8 text-warning mx-auto mb-3 text-amber-500" />
             <h2 className="font-heading font-semibold text-card-foreground mb-2">Business Limit Reached</h2>
             <p className="text-sm text-muted-foreground mb-4">
-              {isTrialActive
-                ? "Your trial allows 1 business. Upgrade to add more."
-                : "Your current plan allows up to " + maxBusinesses + " business(es). Upgrade to add more."}
+              Your current plan allows up to {maxBusinesses} business(es). Upgrade to add more.
             </p>
             <Link to="/dashboard/subscription">
               <Button variant="hero">Upgrade Plan</Button>
