@@ -16,27 +16,45 @@ const ResetPassword = () => {
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
   const [done, setDone] = useState(false);
 
-  // Supabase sends the recovery token as a hash fragment:
-  // /reset-password#access_token=...&type=recovery
-  // The Supabase client auto-handles this via onAuthStateChange
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY") {
+    // Supabase puts the token in the URL hash:
+    // /reset-password#access_token=xxx&refresh_token=xxx&type=recovery
+    // We need to parse it and set the session manually.
+    const hash = window.location.hash;
+
+    if (hash && hash.includes("type=recovery")) {
+      const params = new URLSearchParams(hash.substring(1));
+      const access_token = params.get("access_token");
+      const refresh_token = params.get("refresh_token");
+
+      if (access_token && refresh_token) {
+        supabase.auth.setSession({ access_token, refresh_token }).then(({ error }) => {
+          if (error) {
+            console.error("setSession error:", error.message);
+            setTokenValid(false);
+          } else {
+            setTokenValid(true);
+            // Clean the hash from the URL without reloading
+            window.history.replaceState(null, "", window.location.pathname);
+          }
+        });
+        return;
+      }
+    }
+
+    // No hash token — check if already in a recovery session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
         setTokenValid(true);
-      } else if (event === "SIGNED_IN" && session) {
-        // Already signed in via token, allow reset
-        setTokenValid(true);
+      } else {
+        setTokenValid(false);
       }
     });
 
-    // Also check if there's already a session (token already consumed)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setTokenValid(true);
-      else {
-        // Give onAuthStateChange a moment to fire for recovery token
-        setTimeout(() => {
-          setTokenValid((prev) => (prev === null ? false : prev));
-        }, 1500);
+    // Also listen for PASSWORD_RECOVERY event (fallback)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setTokenValid(true);
       }
     });
 
@@ -50,7 +68,6 @@ const ResetPassword = () => {
       toast.error("Password must be at least 6 characters");
       return;
     }
-
     if (password !== confirm) {
       toast.error("Passwords do not match");
       return;
@@ -81,7 +98,6 @@ const ResetPassword = () => {
         </div>
 
         <div className="bg-card rounded-2xl border border-border p-6 shadow-card">
-          {/* Loading — checking token */}
           {tokenValid === null && (
             <div className="text-center py-6">
               <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
@@ -89,7 +105,6 @@ const ResetPassword = () => {
             </div>
           )}
 
-          {/* Invalid / expired token */}
           {tokenValid === false && (
             <div className="text-center py-4">
               <XCircle className="w-12 h-12 text-destructive mx-auto mb-3" />
@@ -103,7 +118,6 @@ const ResetPassword = () => {
             </div>
           )}
 
-          {/* Success */}
           {done && (
             <div className="text-center py-4">
               <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
@@ -112,7 +126,6 @@ const ResetPassword = () => {
             </div>
           )}
 
-          {/* Reset form */}
           {tokenValid === true && !done && (
             <form onSubmit={handleReset} className="space-y-4">
               <div>
