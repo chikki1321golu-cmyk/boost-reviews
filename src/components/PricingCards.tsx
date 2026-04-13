@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 
-const UPI_ID = "your@upi"; // ← replace with your actual UPI ID
+const UPI_ID = "revuza@ptaxis"; // ← replace with your actual UPI ID
 
 const plans = [
   {
