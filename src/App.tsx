@@ -22,9 +22,8 @@ import AdminPanel from "./pages/AdminPanel";
 
 const queryClient = new QueryClient();
 
-// ✅ FIXED: AdminRoute uses <Outlet /> pattern so it runs INSIDE
-// QueryClientProvider + AuthProvider — this is why useQuery works correctly here.
-// Previously it was defined outside providers and silently failed.
+// ✅ AdminRoute uses <Outlet /> pattern so it runs INSIDE
+// QueryClientProvider + AuthProvider — useQuery works correctly here.
 const AdminRoute = () => {
   const { user, loading } = useAuth();
 
@@ -41,16 +40,9 @@ const AdminRoute = () => {
     enabled: !!user,
   });
 
-  // Still loading auth or admin check — render nothing yet
   if (loading || adminLoading) return null;
-
-  // Not logged in → send to login
   if (!user) return <Navigate to="/login" replace />;
-
-  // Logged in but NOT in the admins table → send to dashboard
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
-
-  // ✅ Confirmed admin — render child route via Outlet
   return <Outlet />;
 };
 
@@ -74,7 +66,7 @@ const App = () => (
             <Route path="/dashboard/qrcode" element={<ProtectedRoute><DashboardQRCode /></ProtectedRoute>} />
             <Route path="/dashboard/subscription" element={<ProtectedRoute><DashboardSubscription /></ProtectedRoute>} />
 
-            {/* ✅ Admin-only route — AdminRoute checks admins table before rendering */}
+            {/* ✅ Admin-only — checks admins table before rendering */}
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<AdminPanel />} />
             </Route>
