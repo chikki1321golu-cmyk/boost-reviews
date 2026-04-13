@@ -24,8 +24,8 @@ export const useSubscription = (): SubscriptionInfo => {
   const { data: subscription, isLoading } = useQuery({
     queryKey: ["subscription", user?.id],
     queryFn: async () => {
-      // ✅ FIXED: Fetch latest subscription without status filter.
-      // Previously filtered .eq("status", "active") which missed edge cases.
+      // ✅ Fetch latest subscription without status filter
+      // so manually activated plans are also picked up
       const { data } = await supabase
         .from("subscriptions")
         .select("*")
@@ -36,16 +36,14 @@ export const useSubscription = (): SubscriptionInfo => {
       return data;
     },
     enabled: !!user,
-    // ✅ Re-fetch when user switches back to tab — picks up admin-activated plans
+    // ✅ Re-fetch on window focus so plan changes reflect without hard refresh
     refetchOnWindowFocus: true,
     staleTime: 30_000,
   });
 
   const now = new Date();
 
-  // ✅ FIXED: isPaid checks status === "active" AND plan !== "trial"
-  // The DB constraint only allows: active | cancelled | expired | past_due
-  // so "active" is the only valid paid status — trial plan is excluded
+  // ✅ isPaid: must be active status, not trial, and not expired
   const isPaid =
     !!subscription &&
     subscription.status === "active" &&
@@ -56,8 +54,8 @@ export const useSubscription = (): SubscriptionInfo => {
   const canGenerateReviews = isPaid;
   const plan = isPaid ? (subscription?.plan ?? "none") : "none";
 
-  // ✅ FIXED: Read max_businesses directly from DB row (which we now keep correct)
-  // Falls back to PLAN_LIMITS from code if the DB value is missing
+  // ✅ Read max_businesses from DB row (kept correct by migrations)
+  // Falls back to code-defined PLAN_LIMITS if DB value missing
   const maxBusinesses = isPaid
     ? (subscription?.max_businesses ?? PLAN_LIMITS[plan] ?? 0)
     : 0;
