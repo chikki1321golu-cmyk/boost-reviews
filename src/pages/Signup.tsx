@@ -34,24 +34,8 @@ const Signup = () => {
       return;
     }
 
-    // Create a 7-day trial subscription for starter plan on signup
-    if (data.user) {
-      const trialEnd = new Date();
-      trialEnd.setDate(trialEnd.getDate() + 7);
-
-      await supabase.from("subscriptions").insert({
-        user_id: data.user.id,
-        plan: "starter",
-        status: "active",
-        is_trial: true,
-        trial_end: trialEnd.toISOString(),
-        current_period_start: new Date().toISOString(),
-        current_period_end: trialEnd.toISOString(),
-      });
-    }
-
     setLoading(false);
-    toast.success("Account created! Your 7-day free trial has started.");
+    toast.success("Account created! Please pay to activate your plan.");
     navigate("/dashboard");
   };
 
@@ -64,13 +48,7 @@ const Signup = () => {
             <span className="font-heading font-bold text-xl text-foreground">Revuza</span>
           </Link>
           <h1 className="font-heading font-bold text-xl text-foreground">Create your account</h1>
-          <p className="text-sm text-muted-foreground mt-1">Start your 7-day free trial today</p>
-        </div>
-
-        {/* Trial badge */}
-        <div className="bg-primary/10 border border-primary/20 rounded-xl p-3 mb-4 text-center">
-          <p className="text-sm text-primary font-semibold">🎉 7-day free trial included</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Trial starts on signup · Starter plan · No credit card required</p>
+          <p className="text-sm text-muted-foreground mt-1">Sign up and choose a plan to get started</p>
         </div>
 
         <div className="bg-card rounded-2xl border border-border p-6 shadow-card">
@@ -89,7 +67,7 @@ const Signup = () => {
             </div>
             <Button variant="hero" className="w-full" type="submit" disabled={loading}>
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              Start Free Trial
+              Create Account
             </Button>
           </form>
         </div>
