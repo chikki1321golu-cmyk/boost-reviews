@@ -8,7 +8,7 @@ interface ReviewPosterProps {
 
 const ReviewPoster = React.forwardRef<HTMLDivElement, ReviewPosterProps>(
   ({ businessName, slug }, ref) => {
-    const qrUrl = `https://boost-reviews.vercel.app/r/${slug}`;
+    const qrUrl = `https://www.revuza.in/r/${slug}`;
 
     return (
       <div
