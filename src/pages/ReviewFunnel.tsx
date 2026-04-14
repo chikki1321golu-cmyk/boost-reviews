@@ -527,6 +527,7 @@ const BUSINESS_TAGS: Record<string, string[]> = {
   "tyre shop": ["Product Quality", "Speed", "Pricing", "Staff Knowledge", "Service"],
   "driving school": ["Instructor Behaviour", "Teaching Quality", "Timings", "Value for Money", "Vehicle Condition"],
   "coaching class": ["Teaching Quality", "Study Material", "Doubt Solving", "Timings", "Value for Money", "Results"],
+  "library": ["Quiet Environment","Seating Comfort","Cleanliness","Study Atmosphere","WiFi","Value for Money"],
   school: ["Teaching Quality", "Faculty", "Infrastructure", "Activities", "Management", "Fees"],
   college: ["Faculty Quality", "Infrastructure", "Placement Support", "Management", "Value for Money"],
   "dance class": ["Instructor Quality", "Atmosphere", "Timings", "Value for Money", "Learning Speed"],
