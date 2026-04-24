@@ -114,7 +114,7 @@ const PricingCards = () => {
           <li>Choose a plan above and note the amount</li>
           <li>Pay to the UPI ID above from any UPI app (GPay, PhonePe, Paytm, etc.)</li>
           <li>In the payment note, write your registered email and plan name</li>
-          <li>Send the payment screenshot to us via WhatsApp or email</li>
+          <li>Send the payment screenshot to us via WhatsApp at +91 92135 49294 or email</li>
           <li>Your plan will be activated within a few hours</li>
         </ol>
       </div>
