@@ -15,7 +15,6 @@ export interface SubscriptionInfo {
 const PLAN_LIMITS: Record<string, number> = {
   starter: 1,
   growth: 3,
-  agency: 20,
 };
 
 export const useSubscription = (): SubscriptionInfo => {
