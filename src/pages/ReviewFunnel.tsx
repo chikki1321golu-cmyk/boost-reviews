@@ -24,6 +24,48 @@ const STEPS = {
 type Step = (typeof STEPS)[keyof typeof STEPS];
 
 // ---------------------------------------------------------------------------
+// ✅ Demo mode — the "Try Demo Funnel" button on the homepage links to /r/demo.
+// This must always work even if no "demo" row exists in the businesses table
+// (e.g. right after a fresh Supabase project restore) and even if the demo
+// "business" has no real paid subscription. So for slug === "demo" we skip
+// Supabase entirely: no business lookup, no plan check, no generate-reviews
+// call, no tracking. Everything is mocked locally.
+// ---------------------------------------------------------------------------
+const DEMO_SLUG = "demo";
+
+const DEMO_BUSINESS: Business = {
+  id: "demo",
+  name: "The Coffee Corner (Demo)",
+  slug: DEMO_SLUG,
+  category: "cafe",
+  google_review_link: "https://www.google.com/search?q=google+reviews",
+  google_place_id: null,
+};
+
+const DEMO_REVIEW_TEMPLATES: Record<string, string[]> = {
+  positive: [
+    "Really happy with my visit to {name}! The {tag1} was great and the {tag2} stood out too. Will definitely be back.",
+    "Great experience at {name} — loved the {tag1}, and {tag2} was on point. Highly recommend to anyone nearby.",
+    "{name} nailed it. {tag1} and {tag2} were both excellent. Five stars, no complaints at all.",
+  ],
+  neutral: [
+    "Visited {name} recently. The {tag1} was decent, though {tag2} could be a bit better. Still, a fine experience overall.",
+    "{name} was okay — {tag1} was good but {tag2} left a little to be desired. Might give it another try.",
+    "Mixed feelings about {name}. {tag1} was solid, {tag2} was average. Not bad, not amazing.",
+  ],
+};
+
+function generateDemoReviews(businessName: string, rating: number, tags: string[]): string[] {
+  const bucket = rating >= 4 ? "positive" : "neutral";
+  const templates = DEMO_REVIEW_TEMPLATES[bucket];
+  const tag1 = tags[0] || "service";
+  const tag2 = tags[1] || tags[0] || "overall experience";
+  return templates.map((t) =>
+    t.replace(/{name}/g, businessName).replace(/{tag1}/g, tag1.toLowerCase()).replace(/{tag2}/g, tag2.toLowerCase())
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Extract Place ID from any Google URL string (runs in browser, no API needed)
 // ---------------------------------------------------------------------------
 function extractPlaceIdFromUrl(url: string): string | null {
@@ -185,6 +227,17 @@ function ReviewFunnelInner({ business }: { business: Business }) {
 
     setIsGenerating(true);
     try {
+      // Demo mode: skip the real AI edge function (which requires a real,
+      // paying business in the database) and generate reviews locally.
+      if (business.id === DEMO_BUSINESS.id) {
+        await new Promise((r) => setTimeout(r, 600)); // brief pause so it still feels like "generating"
+        const reviews = generateDemoReviews(business.name, rating, selectedTags);
+        setGeneratedReviews(reviews);
+        setSelectedReviewIndex(0);
+        setStep(STEPS.POST);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke("generate-reviews", {
         body: {
           businessName: business.name,
@@ -230,6 +283,7 @@ function ReviewFunnelInner({ business }: { business: Business }) {
   const handleCycleReview = async (nextIndex: number) => {
     setSelectedReviewIndex(nextIndex);
     setCopied(false);
+    if (business.id === DEMO_BUSINESS.id) return; // demo: no tracking
     const { data } = await supabase.functions.invoke("track-review", {
       body: {
         event: "cycle",
@@ -247,7 +301,7 @@ function ReviewFunnelInner({ business }: { business: Business }) {
       await navigator.clipboard.writeText(currentReview);
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
-      if (reviewIdRef.current) {
+      if (reviewIdRef.current && business.id !== DEMO_BUSINESS.id) {
         trackEvent({ event: "copied", reviewId: reviewIdRef.current });
       }
     } catch {
@@ -257,6 +311,10 @@ function ReviewFunnelInner({ business }: { business: Business }) {
 
   const getReviewUrl = async (): Promise<string | null> => {
     if (resolvedUrlRef.current) return resolvedUrlRef.current;
+    if (business.id === DEMO_BUSINESS.id) {
+      resolvedUrlRef.current = business.google_review_link;
+      return business.google_review_link;
+    }
     if (business.google_place_id) {
       const url = `https://search.google.com/local/writereview?placeid=${business.google_place_id}`;
       resolvedUrlRef.current = url;
@@ -286,7 +344,7 @@ function ReviewFunnelInner({ business }: { business: Business }) {
         });
         return;
       }
-      if (reviewIdRef.current) {
+      if (reviewIdRef.current && business.id !== DEMO_BUSINESS.id) {
         trackEvent({ event: "google_clicked", reviewId: reviewIdRef.current });
       }
       window.open(reviewUrl, "_blank", "noopener,noreferrer");
@@ -421,6 +479,15 @@ export default function ReviewFunnelPage() {
 
   useEffect(() => {
     if (!slug) return;
+
+    // Demo mode: never touch Supabase, so it works even right after a fresh
+    // database restore or if the "demo" business row was never seeded.
+    if (slug === DEMO_SLUG) {
+      setBusiness(DEMO_BUSINESS);
+      setPlanStatus("ok");
+      setLoading(false);
+      return;
+    }
 
     const load = async () => {
       const { data, error } = await supabase
