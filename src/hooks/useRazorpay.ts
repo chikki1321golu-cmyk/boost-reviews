@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 
-export type PlanId = "starter" | "growth" | "agency";
+export type PlanId = "starter" | "growth";
 
 declare global {
   interface Window { Razorpay: any; }
