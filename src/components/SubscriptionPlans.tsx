@@ -36,23 +36,6 @@ const PLANS = [
     ],
     popular: true,
   },
-  {
-    id: "agency",
-    name: "Agency",
-    price: 3999,
-    period: "/28 days",
-    description: "For agencies & enterprises",
-    color: "border-gray-200",
-    features: [
-      "20 businesses",
-      "Unlimited AI reviews",
-      "White-label dashboard",
-      "API access",
-      "Dedicated support",
-      "Custom integrations",
-    ],
-    popular: false,
-  },
 ];
 
 export default function SubscriptionPlans() {
@@ -70,7 +53,7 @@ export default function SubscriptionPlans() {
         <p className="text-muted-foreground">All plans renew every 28 days · Cancel anytime</p>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6 mb-8">
+      <div className="grid md:grid-cols-2 gap-6 mb-8 max-w-3xl mx-auto">
         {PLANS.map((plan) => (
           <div
             key={plan.id}
