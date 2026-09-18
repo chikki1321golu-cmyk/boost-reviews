@@ -26,15 +26,6 @@ const plans = [
     bestFor: null,
     popular: true,
   },
-  {
-    id: "agency",
-    name: "Agency",
-    price: "₹3,999",
-    period: "/28 days",
-    features: ["20 businesses", "White-label dashboard", "Remove \"Powered by\"", "Bulk QR generation", "Team access"],
-    bestFor: null,
-    popular: false,
-  },
 ];
 
 const PricingCards = () => {
@@ -55,7 +46,7 @@ const PricingCards = () => {
 
   return (
     <div>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid sm:grid-cols-2 gap-6 mb-8 max-w-2xl mx-auto">
         {plans.map((plan) => (
           <div
             key={plan.id}
