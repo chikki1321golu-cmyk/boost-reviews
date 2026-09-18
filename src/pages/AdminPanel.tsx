@@ -14,18 +14,16 @@ import {
   ChevronDown, Loader2, Building2, BarChart3,
 } from "lucide-react";
 
-type Plan = "starter" | "growth" | "agency";
+type Plan = "starter" | "growth";
 
 const PLAN_PRICES: Record<Plan, string> = {
   starter: "₹499",
   growth: "₹1,499",
-  agency: "₹3,999",
 };
 
 const PLAN_COLORS: Record<string, string> = {
   starter: "bg-blue-100 text-blue-700",
   growth: "bg-green-100 text-green-700",
-  agency: "bg-purple-100 text-purple-700",
   trial: "bg-yellow-100 text-yellow-700",
   none: "bg-gray-100 text-gray-500",
 };
@@ -203,8 +201,8 @@ function PlanModal({
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium text-gray-700 mb-1 block">Plan</label>
-            <div className="grid grid-cols-3 gap-2">
-              {(["starter", "growth", "agency"] as Plan[]).map((p) => (
+            <div className="grid grid-cols-2 gap-2">
+              {(["starter", "growth"] as Plan[]).map((p) => (
                 <button
                   key={p}
                   onClick={() => setPlan(p)}
@@ -532,7 +530,6 @@ function QuickActivate() {
         >
           <option value="starter">Starter — ₹499</option>
           <option value="growth">Growth — ₹1,499</option>
-          <option value="agency">Agency — ₹3,999</option>
         </select>
       </div>
       <div>
